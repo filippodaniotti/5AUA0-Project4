@@ -1,3 +1,7 @@
+r"""
+Adapted from https://github.com/akaraspt/tinysleepnet/blob/main/prepare_sleepedf.py    
+"""
+
 import argparse
 import glob
 import math
@@ -7,6 +11,7 @@ import shutil
 import pyedflib
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from sleepstage import stage_dict
 from logger import get_logger
@@ -23,37 +28,38 @@ ann2label = {
     "Movement time": 5
 }
 
+# Deault params
+DATA_DIR = "./data/sleep-edf-database-expanded-1.0.0/sleep-cassette"
+OUTPUT_DIR = "./data/sleep-edf-database-expanded-1.0.0/sleep-cassette/eeg_fpz_cz"
+SELECT_CHANNEL = "EEG Fpz-Cz"
+LOG_FILE = "info_ch_extract.log"
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="./data/sleepedf/sleep-cassette",
-                        help="File path to the Sleep-EDF dataset.")
-    parser.add_argument("--output_dir", type=str, default="./data/sleepedf/sleep-cassette/eeg_fpz_cz",
-                        help="Directory where to save outputs.")
-    parser.add_argument("--select_ch", type=str, default="EEG Fpz-Cz",
-                        help="Name of the channel in the dataset.")
-    parser.add_argument("--log_file", type=str, default="info_ch_extract.log",
-                        help="Log file.")
-    args = parser.parse_args()
+
+def main(
+        data_dir: str = DATA_DIR,
+        output_dir: str = OUTPUT_DIR,
+        select_ch: str = SELECT_CHANNEL,
+        log_file: str = LOG_FILE):
+    
+    data_dir = Path(data_dir)
+    output_dir = Path(output_dir)
+    log_file = Path(log_file)
 
     # Output dir
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     else:
-        shutil.rmtree(args.output_dir)
-        os.makedirs(args.output_dir)
+        shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
 
-    args.log_file = os.path.join(args.output_dir, args.log_file)
+    log_file = os.path.join(output_dir, log_file)
 
     # Create logger
-    logger = get_logger(args.log_file, level="info")
-
-    # Select channel
-    select_ch = args.select_ch
+    logger = get_logger(log_file, level="info")
 
     # Read raw and annotation from EDF files
-    psg_fnames = glob.glob(os.path.join(args.data_dir, "*PSG.edf"))
-    ann_fnames = glob.glob(os.path.join(args.data_dir, "*Hypnogram.edf"))
+    psg_fnames = glob.glob(os.path.join(data_dir, "*PSG.edf"))
+    ann_fnames = glob.glob(os.path.join(data_dir, "*Hypnogram.edf"))
     psg_fnames.sort()
     ann_fnames.sort()
     psg_fnames = np.asarray(psg_fnames)
@@ -188,4 +194,21 @@ def main():
 
         logger.info("\n=======================================\n")
 
-main()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", type=str, default="./data/sleep-edf-database-expanded-1.0.0/sleep-cassette",
+                        help="File path to the Sleep-EDF dataset.")
+    parser.add_argument("--output_dir", type=str, default="./data/sleep-edf-database-expanded-1.0.0/sleep-cassette/eeg_fpz_cz",
+                        help="Directory where to save outputs.")
+    parser.add_argument("--select_ch", type=str, default="EEG Fpz-Cz",
+                        help="Name of the channel in the dataset.")
+    parser.add_argument("--log_file", type=str, default="info_ch_extract.log",
+                        help="Log file.")
+    args = parser.parse_args()
+    
+    main(
+        args.data_dir, 
+        args.output_dir,
+        args.select_ch,
+        args.log_file)

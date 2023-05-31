@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class TinySleepNet(nn.Module):
     def __init__(self, num_classes, in_channels=1, sampling_rate=100):
@@ -47,16 +48,17 @@ class TinySleepNet(nn.Module):
         self.fc = nn.Linear(128, num_classes)
     
     def forward(self, x, state):
-        print(x.shape)
-        print(x.view(15*20, 1, 3000).shape)
         # x = self.representation(x)
-        x = self.representation(x.view(15*20, 1, 3000))
+        bs = x.shape[0]
+        x = x.view(bs*20, -1).unsqueeze(1)
+        x = self.representation(x)
         # input of LSTM must be shape(seq_len, batch, input_size)
         # x = x.view(self.config['seq_length'], self.config['batch_size'], -1)
-        print(x.shape)
         x = x.view(-1, 20, 2048)  # batch first == True
         assert x.shape[-1] == 2048
-        print(x.shape)
+        # x = pack_padded_sequence(x, lengths, batch_first=True, enforce_sorted=False)
+        if state[0].shape[1] != bs:
+            state = state[0][:, :bs, :], state[1][:, :bs, :]
         x, state = self.rnn(x, state)
         # x = x.view(-1, self.config['n_rnn_units'])
         x = x.reshape(-1, 128)

@@ -1,15 +1,17 @@
+from os.path import join
 from dataclasses import dataclass
 
 
 @dataclass
 class Config:
-    batch_size_train = 32
-    batch_size_test = 25
-    lr = 0.005
+    batch_size = 15
+    seq_len = 20
+    # batch_size_test = 25
+    lr = 0.1
     lr_momentum = 0.9
     weight_decay = 1e-4
     num_classes = 10
-    gt_dir = "./data/cifar-10-batches-py/"
-    num_iterations = 10000
-    log_iterations = 100
+    data_dir = join("data", "sleepedfx", "sleep-cassette", "eeg_fpz_cz")
+    epochs = 10
+    log_iterations = 1
     enable_cuda = False

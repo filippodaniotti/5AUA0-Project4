@@ -5,3 +5,4 @@ pyedflib
 ipykernel
 matplotlib
 xlrd
+lightning

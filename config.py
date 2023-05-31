@@ -11,7 +11,7 @@ class Config:
     lr_momentum = 0.9
     weight_decay = 1e-4
     num_classes = 10
-    data_dir = join("data", "sleepedfx", "sleep-cassette", "eeg_fpz_cz")
+    data_dir = join("dataset", "sleepedfx", "sleep-cassette", "eeg_fpz_cz")
     epochs = 10
     log_iterations = 1
     enable_cuda = False

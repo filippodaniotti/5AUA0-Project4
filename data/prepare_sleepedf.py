@@ -29,6 +29,14 @@ ann2label = {
     "Movement time": 5
 }
 
+label2ann = {
+    0: "Sleep stage W",
+    1: "Sleep stage 1",
+    2: "Sleep stage 2",
+    3: "Sleep stage 3/4",
+    4: "Sleep stage R"
+}
+
 # Deault params
 DATA_DIR = "./data/sleepedfx/sleep-cassette"
 OUTPUT_DIR = "./data/sleepedfx/sleep-cassette/eeg_fpz_cz"

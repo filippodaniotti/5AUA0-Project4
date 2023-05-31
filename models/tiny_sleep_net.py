@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
+from torch import tensor
+
 class TinySleepNet(nn.Module):
     def __init__(self, num_classes, in_channels=1, sampling_rate=100):
         super().__init__()
@@ -47,7 +49,7 @@ class TinySleepNet(nn.Module):
         # in the paper they softmax but yeah
         self.fc = nn.Linear(128, num_classes)
     
-    def forward(self, x, state):
+    def forward(self, x, state = None):
         # x = self.representation(x)
         bs = x.shape[0]
         x = x.view(bs*20, -1).unsqueeze(1)
@@ -57,8 +59,8 @@ class TinySleepNet(nn.Module):
         x = x.view(-1, 20, 2048)  # batch first == True
         assert x.shape[-1] == 2048
         # x = pack_padded_sequence(x, lengths, batch_first=True, enforce_sorted=False)
-        if state[0].shape[1] != bs:
-            state = state[0][:, :bs, :], state[1][:, :bs, :]
+        # if state[0].shape[1] != bs:
+        #     state = state[0][:, :bs, :], state[1][:, :bs, :]
         x, state = self.rnn(x, state)
         # x = x.view(-1, self.config['n_rnn_units'])
         x = x.reshape(-1, 128)

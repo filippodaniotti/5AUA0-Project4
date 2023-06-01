@@ -68,34 +68,34 @@ class SubjectDataset(Dataset):
 
         return subject_files
     
-def get_collator(low_resources: bool = False):
+def get_collator(seq_len: int = 20, low_resources: bool = False):
     def collate_fn(batch: list[tuple[tensor, tensor]]):
         inputs = []
         targets = []
         
         for inp, tar in batch:
-            # strip tensors to multiple of 20
+            # strip tensors to multiple of seq_len
             n_epochs = inp.shape[0]
-            inp = inp[:n_epochs - n_epochs % 20, :]
-            tar = tar[:n_epochs - n_epochs % 20]
+            inp = inp[:n_epochs - n_epochs % seq_len, :]
+            tar = tar[:n_epochs - n_epochs % seq_len]
             
             # reshape it to [seqs, seq_len, fs*epoch_duration]
-            inp = inp.view(-1, 20, 3000)
-            tar = tar.view(-1, 20)
+            inp = inp.view(-1, seq_len, 3000)
+            tar = tar.view(-1, seq_len)
             
             inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
             tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
             
             inputs.extend(inp)
-            targets.extend(tar)   
+            targets.extend(tar)
             
-        
         if low_resources and len(inputs) > 128:
             start = np.random.randint(0, len(inputs) - 128)
             inputs = inputs[start:start+128]
             targets = targets[start:start+128]
         
         return torch.stack(inputs), torch.stack(targets)
+    return collate_fn
 
 def get_data(
         root: str,

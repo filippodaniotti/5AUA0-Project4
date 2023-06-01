@@ -6,18 +6,19 @@ from torchmetrics import Accuracy
 from models.tiny_sleep_net import TinySleepNet
 from sklearn.metrics import classification_report
 from data.prepare_sleepedf import label2ann
+from config import Config
 
 class SleepStagingModel(pl.LightningModule):
     def __init__(
             self, 
             model: nn.Module, 
             cost_function: nn.Module,
-            num_classes: int = 5):
+            config: Config):
         super().__init__()
 
         self.model = model    
         self.cost_fn = cost_function
-        self.accuracy = Accuracy(task="multiclass", num_classes=num_classes)
+        self.accuracy = Accuracy(task="multiclass", num_classes=config.num_classes)
         
     def forward(self, x: tensor) -> tensor:
         return self.model(x)
@@ -59,4 +60,4 @@ class SleepStagingModel(pl.LightningModule):
     
 
 if __name__ == "__main__":
-    model = SleepStagingModel(TinySleepNet(5), nn.CrossEntropyLoss(), 5)
+    model = SleepStagingModel(TinySleepNet(5), nn.CrossEntropyLoss(), {"num_classes": 5})

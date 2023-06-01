@@ -135,4 +135,4 @@ dataset/*
 !dataset/README.md
 
 *.pth
-lightning_logs/
+experiments_logs/

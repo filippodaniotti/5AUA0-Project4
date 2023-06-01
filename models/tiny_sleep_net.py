@@ -4,10 +4,12 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from torch import tensor
+from config import Config
 
 class TinySleepNet(nn.Module):
-    def __init__(self, num_classes, in_channels=1, sampling_rate=100):
+    def __init__(self, config: Config):
         super().__init__()
+        self.cfg = config
         
         self.padding_edf = {  # same padding in tensorflow
             'conv1': (22, 22),
@@ -16,14 +18,12 @@ class TinySleepNet(nn.Module):
             'max_pool2': (0, 1),
         }
         
-        
-        self.sampling_rate = sampling_rate
         self.representation = nn.Sequential(
             *self._get_conv_block(
-                in_channels=in_channels,
+                in_channels=self.cfg.in_channels,
                 out_channels=128,
-                kernel_size=int(sampling_rate / 2),
-                stride=int(sampling_rate / 16),
+                kernel_size=int(self.cfg.sampling_rate / 2),
+                stride=int(self.cfg.sampling_rate / 16),
                 padding=self.padding_edf['conv1'],
                 ),
             nn.ConstantPad1d(self.padding_edf['max_pool1'], 0),
@@ -40,30 +40,23 @@ class TinySleepNet(nn.Module):
         
         self.rnn = nn.LSTM(
                 input_size=2048, 
-                hidden_size=128, 
+                hidden_size=self.cfg.rnn_hidden_size, 
                 num_layers=1, 
                 batch_first=True,
         )
         self.rnn_dropout = nn.Dropout(p=.5)
-        
-        # in the paper they softmax but yeah
-        self.fc = nn.Linear(128, num_classes)
+        self.fc = nn.Linear(self.cfg.rnn_hidden_size, self.cfg.num_classes)
     
     def forward(self, x, state = None):
-        # x = self.representation(x)
-        bs = x.shape[0]
-        x = x.view(bs*20, -1).unsqueeze(1)
+        batch_length = x.shape[0]
+        x = x.view(batch_length * self.cfg.seq_len, -1).unsqueeze(1)
         x = self.representation(x)
-        # input of LSTM must be shape(seq_len, batch, input_size)
-        # x = x.view(self.config['seq_length'], self.config['batch_size'], -1)
-        x = x.view(-1, 20, 2048)  # batch first == True
+        x = x.view(-1, self.cfg.seq_len, 2048)  # batch first == True
         assert x.shape[-1] == 2048
-        # x = pack_padded_sequence(x, lengths, batch_first=True, enforce_sorted=False)
         # if state[0].shape[1] != bs:
         #     state = state[0][:, :bs, :], state[1][:, :bs, :]
         x, state = self.rnn(x, state)
-        # x = x.view(-1, self.config['n_rnn_units'])
-        x = x.reshape(-1, 128)
+        x = x.reshape(-1, self.cfg.rnn_hidden_size)
         # rnn output shape(seq_length, batch_size, hidden_size)
         x = self.rnn_dropout(x)
         x = self.fc(x)
@@ -90,10 +83,9 @@ class TinySleepNet(nn.Module):
             nn.ReLU(inplace=True),
         )
         
-    def _init_hidden(self, batch_size):
-        state = (torch.zeros(size=(1, batch_size, 128)),
-                 torch.zeros(size=(1, batch_size, 128)))
-        # state = (state[0].to(self.device), state[1].to(self.device))
+    def _init_hidden(self):
+        state = (torch.zeros(size=(1, self.cfg.batch_size, self.cfg.rnn_hidden_size)),
+                 torch.zeros(size=(1, self.cfg.batch_size, self.cfg.rnn_hidden_size)))
         return state
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ class SleepStagingModel(pl.LightningModule):
                 targets.view(-1),
                 preds,
                 labels=list(label2ann.keys()),
-                normalize="all"
+                normalize="pred"
             )   
             self.results = {"report": report, "matrix": matrix, "matrix_norm": matrix_norm}
         return metrics

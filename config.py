@@ -23,16 +23,16 @@ class Config:
     seq_len: int = 20
     
     # others
-    low_resources: bool = True
+    low_resources: int = 0
     logs_dir: str = "experiments_logs"
 
 configurations: dict[str, Config] = {
     "baseline": Config(
-        low_resources=True,
+        low_resources=128,
         epochs=10,
     ),
     "baseline_gpu": Config(
-        low_resources=True,
+        low_resources=512,
         epochs=200,
     ),
 }

@@ -68,7 +68,7 @@ class SubjectDataset(Dataset):
 
         return subject_files
     
-def get_collator(seq_len: int = 20, low_resources: bool = False):
+def get_collator(seq_len: int = 20, low_resources: int = 0):
     def collate_fn(batch: list[tuple[tensor, tensor]]):
         inputs = []
         targets = []
@@ -89,10 +89,10 @@ def get_collator(seq_len: int = 20, low_resources: bool = False):
             inputs.extend(inp)
             targets.extend(tar)
             
-        if low_resources and len(inputs) > 128:
-            start = np.random.randint(0, len(inputs) - 128)
-            inputs = inputs[start:start+128]
-            targets = targets[start:start+128]
+        if low_resources and len(inputs) > low_resources:
+            start = np.random.randint(0, len(inputs) - low_resources)
+            inputs = inputs[start:start+low_resources]
+            targets = targets[start:start+low_resources]
         
         return torch.stack(inputs), torch.stack(targets)
     return collate_fn

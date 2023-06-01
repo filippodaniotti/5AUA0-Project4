@@ -136,3 +136,4 @@ dataset/*
 
 *.pth
 experiments_logs/
+lightning_logs

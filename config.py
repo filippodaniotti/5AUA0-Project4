@@ -6,11 +6,9 @@ __all__ = ["configurations", "Config"]
 @dataclass(frozen=True)
 class Config:
     # model
-    lr: float = 0.1
-    lr_momentum: float = 0.9
+    lr: float = 0.0001
     weight_decay: float = 1e-4
     num_classes: num_classes = 5
-    optimizer: str = "sgd"
     sampling_rate: int = 100
     in_channels: int = 1
     rnn_hidden_size: int = 128
@@ -30,9 +28,11 @@ class Config:
 
 configurations: dict[str, Config] = {
     "baseline": Config(
-        low_resources=True
+        low_resources=True,
+        epochs=10,
     ),
     "baseline_gpu": Config(
-        low_resources=False
+        low_resources=True,
+        epochs=200,
     ),
 }

@@ -4,7 +4,7 @@ from torch import nn, tensor
 from torchmetrics import Accuracy
 
 from models.tiny_sleep_net import TinySleepNet
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from data.prepare_sleepedf import label2ann
 from config import Config
 
@@ -13,12 +13,16 @@ class SleepStagingModel(pl.LightningModule):
             self, 
             model: nn.Module, 
             cost_function: nn.Module,
-            config: Config):
+            config: Config,
+            evaluate: bool = False):
         super().__init__()
-
+        self.cfg = config
         self.model = model    
         self.cost_fn = cost_function
-        self.accuracy = Accuracy(task="multiclass", num_classes=config.num_classes)
+        self.accuracy = Accuracy(task="multiclass", num_classes=self.cfg.num_classes)
+        
+        self.evaluate = evaluate
+        self.results = None
         
     def forward(self, x: tensor) -> tensor:
         return self.model(x)
@@ -39,11 +43,30 @@ class SleepStagingModel(pl.LightningModule):
         inputs, targets = batch
         loss, acc, preds = self._compute_loss_and_accuracy(inputs, targets)
         metrics = self._print_metrics(loss.item(), acc.item(), "Test")
-        self.print(classification_report(targets.view(-1), preds, labels=list(label2ann.keys()), target_names=list(label2ann.values())))
-        return metrics  
+        if self.evaluate:
+            report = classification_report(
+                targets.view(-1), 
+                preds, 
+                labels=list(label2ann.keys()), 
+                target_names=list(label2ann.values()),
+                output_dict=True
+            )
+            matrix = confusion_matrix(
+                targets.view(-1),
+                preds,
+                labels=list(label2ann.keys())
+            )
+            matrix_norm = confusion_matrix(
+                targets.view(-1),
+                preds,
+                labels=list(label2ann.keys()),
+                normalize="all"
+            )   
+            self.results = {"report": report, "matrix": matrix, "matrix_norm": matrix_norm}
+        return metrics
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.1)
+        return torch.optim.Adam(self.parameters(), lr=0.0001)
 
     def _compute_loss_and_accuracy(self, inputs: tensor, targets: tensor):
         outputs, _ = self(inputs)

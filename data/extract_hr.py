@@ -25,8 +25,8 @@ def viewData(file):
     # print(np.shape(x1), len(y1), fs1, ch_label1, n_epochs1)
     # print(np.shape(x2), len(y2), fs2, ch_label2, n_epochs2)
     # print(file_duration, epoch_duration, n_all_epochs, '\n')
-
-    return (x1,y1,fs1, ch_label1), (x2, y2, fs2, ch_label2), npz
+    data = dict(npz)
+    return (x1,y1,fs1, ch_label1), (x2, y2, fs2, ch_label2), data
 
 
 def heartRate(ecg, eeg, ann, fs):
@@ -108,21 +108,20 @@ else:
 
 files = os.listdir(input_dir)
 
-for f in range(1): #len(files)):
+for f in range(len(files)):
     (x1,y1,fs1, ch_label1), (x2, y2, fs2, ch_label2), data = viewData(os.path.join(input_dir, files[f]))
     assert ch_label1 == "ECG"
     assert np.all(y1 == y2)
 
     ecg, eeg, hr, ann = heartRate(x1, x2, y1, fs1)
 
-    ("Saving data")
+    print("Saving data")
     data['x1'] = ecg
     data['y1'] = ann
     data['x2'] = eeg
     data['y2'] = ann
     data['x3'] = hr
     data['y3'] = ann
-
     np.savez(os.path.join(output_dir, files[f]), **data)
 
     print("Data is now saved in new directory, containing 3 channels: ecg, eeg and hr")

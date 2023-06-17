@@ -4,7 +4,7 @@ from torch import nn, tensor
 from torchmetrics import Accuracy
 
 from models.tiny_sleep_net import TinySleepNet
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, cohen_kappa_score
 from data.prepare_sleepedf import label2ann
 from config import Config
 
@@ -22,7 +22,9 @@ class SleepStagingModel(pl.LightningModule):
         self.accuracy = Accuracy(task="multiclass", num_classes=self.cfg.num_classes)
         
         self.evaluate = evaluate
-        self.results = None
+        if self.evaluate:
+            self.predictions = []
+            self.targets = []
         
     def forward(self, x: tensor) -> tensor:
         return self.model(x)
@@ -43,6 +45,9 @@ class SleepStagingModel(pl.LightningModule):
         inputs, targets = batch
         loss, acc, preds = self._compute_loss_and_accuracy(inputs, targets)
         metrics = self._print_metrics(loss.item(), acc.item(), "Test")
+        if self.evaluate:
+            self.predictions.append(preds)
+            self.targets.append(targets)
         if self.evaluate:
             report = classification_report(
                 targets.view(-1), 
@@ -69,8 +74,10 @@ class SleepStagingModel(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=0.0001)
 
     def _compute_loss_and_accuracy(self, inputs: tensor, targets: tensor):
+        # print(inputs.shape, targets.shape)
         outputs, _ = self(inputs)
         targets = targets.view(-1)
+        # print(outputs.shape, targets.shape)
         loss = self.cost_fn(outputs, targets)
         _, predicted = outputs.max(1)
         acc = self.accuracy(predicted, targets) * 100
@@ -81,6 +88,47 @@ class SleepStagingModel(pl.LightningModule):
         self.log_dict(metrics, prog_bar=True, on_epoch=True, on_step=False)
         return metrics
     
+    def compute_metrics(self):
+        predicted = torch.cat(self.predictions, dim=0).detach().cpu().numpy()
+        targets = torch.cat(self.targets, dim=0).detach().cpu().numpy()
+        report = classification_report(
+            targets, 
+            predicted, 
+            labels=list(self.class_to_idx.values()), 
+            target_names=list(self.class_to_idx.keys()),
+            output_dict=True
+        )
+        matrix = confusion_matrix(
+            targets,
+            predicted,
+            labels=list(self.class_to_idx.values())
+        )
+        kappa = cohen_kappa_score(targets, predicted, self.class_to_idx.values())
+        return {"report": report, "matrix": matrix, "kappa": kappa}
+    
 
 if __name__ == "__main__":
-    model = SleepStagingModel(TinySleepNet(5), nn.CrossEntropyLoss(), {"num_classes": 5})
+    from config import configurations
+    from data.data import get_data, get_collator
+    
+    conf = configurations["baseline_hmc"]
+    model = SleepStagingModel(TinySleepNet(conf), nn.CrossEntropyLoss(), conf)
+    
+    train_loader, *_ = get_data(
+        root=conf.data_dir,
+        dataset=conf.dataset,
+        batch_size=conf.batch_size,
+        train_percentage=0.8,
+        val_percentage=0.1,
+        test_percentage=0.1,
+        collate_fn=get_collator(
+            epoch_duration=conf.epoch_duration,
+            in_channels=conf.in_channels,
+            sampling_rate=conf.sampling_rate,
+            low_resources=conf.low_resources)
+    )
+    
+    for t, s in train_loader:
+        print(t.shape)
+        print(s.shape)
+        o = model(t)

@@ -14,11 +14,16 @@ def run(config_name: str):
     cfg: Config = configurations[config_name]
     train_loader, valid_loader, test_loader = get_data(
         root=cfg.data_dir,
+        dataset=cfg.dataset,
         batch_size=cfg.batch_size,
-        train_percentage=0.8,
-        val_percentage=0.1,
+        train_percentage=0.9,
+        val_percentage=0.0,
         test_percentage=0.1,
-        collate_fn=get_collator(low_resources=cfg.low_resources)
+        collate_fn=get_collator(
+            sampling_rate=cfg.sampling_rate,
+            in_channels=cfg.in_channels,
+            epoch_duration=cfg.epoch_duration,
+            low_resources=cfg.low_resources)
     )
     criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1., 1.5, 1., 1., 1.]))
     model = SleepStagingModel(TinySleepNet(cfg), criterion, cfg)
@@ -29,9 +34,9 @@ def run(config_name: str):
         logger=logger
     )
     
-    trainer.test(model, test_loader)
-    trainer.fit(model, train_loader, valid_loader)
-    trainer.test(model, test_loader)
+    # trainer.test(model, test_loader)
+    trainer.fit(model, train_loader)
+    # trainer.test(model, test_loader)
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Perform a full train and evaluation experiment.")
@@ -44,7 +49,6 @@ if __name__ == "__main__":
         help="the configuration to be used in the experiment"
     )
     args = parser.parse_args()
-    print(args)
     if args.config_name not in configurations.keys():
         raise ValueError(f"Configuration {args.config_name} not found. Check 'config.py'.")
     run(args.config_name)

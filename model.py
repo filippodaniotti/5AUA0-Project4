@@ -5,7 +5,6 @@ from torchmetrics import Accuracy
 
 from models.tiny_sleep_net import TinySleepNet
 from sklearn.metrics import classification_report, confusion_matrix, cohen_kappa_score
-from data.prepare_sleepedf import label2ann
 from config import Config
 
 class SleepStagingModel(pl.LightningModule):
@@ -20,6 +19,14 @@ class SleepStagingModel(pl.LightningModule):
         self.model = model    
         self.cost_fn = cost_function
         self.accuracy = Accuracy(task="multiclass", num_classes=self.cfg.num_classes)
+        
+        self.idx_to_class = {
+            0: "Sleep stage W",
+            1: "Sleep stage 1",
+            2: "Sleep stage 2",
+            3: "Sleep stage 3/4",
+            4: "Sleep stage R"
+        }
         
         self.evaluate = evaluate
         if self.evaluate:
@@ -48,26 +55,6 @@ class SleepStagingModel(pl.LightningModule):
         if self.evaluate:
             self.predictions.append(preds)
             self.targets.append(targets)
-        if self.evaluate:
-            report = classification_report(
-                targets.view(-1), 
-                preds, 
-                labels=list(label2ann.keys()), 
-                target_names=list(label2ann.values()),
-                output_dict=True
-            )
-            matrix = confusion_matrix(
-                targets.view(-1),
-                preds,
-                labels=list(label2ann.keys())
-            )
-            matrix_norm = confusion_matrix(
-                targets.view(-1),
-                preds,
-                labels=list(label2ann.keys()),
-                normalize="pred"
-            )   
-            self.results = {"report": report, "matrix": matrix, "matrix_norm": matrix_norm}
         return metrics
 
     def configure_optimizers(self):
@@ -94,16 +81,16 @@ class SleepStagingModel(pl.LightningModule):
         report = classification_report(
             targets, 
             predicted, 
-            labels=list(self.class_to_idx.values()), 
-            target_names=list(self.class_to_idx.keys()),
+            labels=list(self.class_to_idx.keys()), 
+            target_names=list(self.class_to_idx.values()),
             output_dict=True
         )
         matrix = confusion_matrix(
             targets,
             predicted,
-            labels=list(self.class_to_idx.values())
+            labels=list(self.class_to_idx.keys())
         )
-        kappa = cohen_kappa_score(targets, predicted, self.class_to_idx.values())
+        kappa = cohen_kappa_score(targets, predicted, self.class_to_idx.keys())
         return {"report": report, "matrix": matrix, "kappa": kappa}
     
 

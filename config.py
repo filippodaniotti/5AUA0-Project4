@@ -35,6 +35,7 @@ class Config:
     epochs: int = 50
     log_iterations: int = 1
     batch_size: int = 15
+    test_batch_size: int = 1
     seq_len: int = 20
     
     # others
@@ -54,7 +55,7 @@ configurations: dict[str, Config] = {
     "baseline_hmc": Config(
         data_dir=join("dataset", "hmc"),
         sampling_rate=256,
-        batch_size=5,
+        batch_size=15,
         epoch_duration=1,
         low_resources=128,
         dataset="hmc",
@@ -68,12 +69,12 @@ configurations: dict[str, Config] = {
         strides_conv1=1,
         strides_max_pool1=4,
     ),
-    "baseline_hmc_bs5": Config(
+    "baseline_hmc_gpu": Config(
         data_dir=join("dataset", "hmc"),
         sampling_rate=256,
-        batch_size=5,
+        batch_size=15,
         epoch_duration=1,
-        low_resources=False,
+        low_resources=2048,
         dataset="hmc",
         in_channels=2,
         padding_conv1=(2, 2),

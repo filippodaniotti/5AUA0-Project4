@@ -23,14 +23,21 @@ def run(config_name: str):
         root=cfg.data_dir,
         dataset=cfg.dataset,
         batch_size=cfg.batch_size,
+        test_batch_size=cfg.test_batch_size,
         train_percentage=0.9,
         val_percentage=0.0,
         test_percentage=0.1,
-        collate_fn=get_collator(
+        train_collate_fn=get_collator(
             sampling_rate=cfg.sampling_rate,
             in_channels=cfg.in_channels,
             epoch_duration=cfg.epoch_duration,
-            low_resources=cfg.low_resources)
+            low_resources=cfg.low_resources),
+        test_collate_fn=get_collator(
+            sampling_rate=cfg.sampling_rate,
+            in_channels=cfg.in_channels,
+            epoch_duration=cfg.epoch_duration,
+            low_resources=cfg.low_resources,
+            is_test_set=True)
     )
     criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1., 1.5, 1., 1., 1.]))
     model = SleepStagingModel(TinySleepNet(cfg), criterion, cfg)

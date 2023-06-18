@@ -18,7 +18,8 @@ def get_collator(
         in_channels: int = 1,
         sampling_rate: int = 100,
         epoch_duration: int = 30,
-        low_resources: int = 0):
+        low_resources: int = 0,
+        is_test_set: bool = False):
     def collate_fn(batch: list[tuple[tensor, tensor]]):
         inputs = []
         targets = []
@@ -30,7 +31,7 @@ def get_collator(
             tar = tar[:n_epochs - n_epochs % seq_len]
             
             # reshape it to [seqs, seq_len, fs*epoch_duration]
-            inp = inp.view(-1, seq_len, 2, sampling_rate * epoch_duration)
+            inp = inp.view(-1, seq_len, in_channels, sampling_rate * epoch_duration)
             tar = tar.view(-1, seq_len)
             
             inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
@@ -39,7 +40,7 @@ def get_collator(
             inputs.extend(inp)
             targets.extend(tar)
             
-        if low_resources and len(inputs) > low_resources:
+        if low_resources and len(inputs) > low_resources and not is_test_set:
             start = np.random.randint(0, len(inputs) - low_resources)
             inputs = inputs[start:start+low_resources]
             targets = targets[start:start+low_resources]
@@ -57,7 +58,8 @@ def get_data(
         train_percentage: float = 0.8, 
         val_percentage: float = 0.1, 
         test_percentage: float = 0.1,
-        collate_fn: callable = None, 
+        train_collate_fn: callable = None, 
+        test_collate_fn: callable = None, 
         seed: int = 42
         ):        
     if dataset not in ["sleepedfx", "hmc"]:
@@ -89,14 +91,14 @@ def get_data(
     # valid_dataset = dataset_classes[dataset](root, valid_subjects)
     test_dataset = dataset_classes[dataset](root, test_subjects)
     
-    train_loader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn=train_collate_fn)
     # valid_loader = DataLoader(valid_dataset, batch_size, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, collate_fn=collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, collate_fn=test_collate_fn)
     
     return train_loader, train_loader, test_loader
     
 if __name__ == "__main__":
-    train, *_ = get_data(os.path.join("dataset", "hmc"), collate_fn=get_collator(sampling_rate=256, epoch_duration=1,   low_resources=128))
+    train, *_ = get_data(os.path.join("dataset", "hmc"), train_collate_fn=get_collator(sampling_rate=256, epoch_duration=1,   low_resources=128), test_collate_fn=get_collator(sampling_rate=256, epoch_duration=1,   low_resources=128), is_test_set=True)
     # inpsp = None 
     for idx, (inp, tar) in enumerate(train):
         print(type(inp))

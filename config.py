@@ -40,6 +40,7 @@ class Config:
     # others
     low_resources: int = 0
     logs_dir: str = "experiments_logs"
+    seed: int = 42
 
 configurations: dict[str, Config] = {
     "baseline": Config(
@@ -53,8 +54,26 @@ configurations: dict[str, Config] = {
     "baseline_hmc": Config(
         data_dir=join("dataset", "hmc"),
         sampling_rate=256,
+        batch_size=5,
         epoch_duration=1,
         low_resources=128,
+        dataset="hmc",
+        in_channels=2,
+        padding_conv1=(2, 2),
+        padding_max_pool1=(4, 4),
+        padding_conv2=(3, 4),
+        padding_max_pool2=(0, 1),
+        kernel_sizes_conv1=5,
+        kernel_sizes_max_pool1=16,
+        strides_conv1=1,
+        strides_max_pool1=4,
+    ),
+    "baseline_hmc_bs5": Config(
+        data_dir=join("dataset", "hmc"),
+        sampling_rate=256,
+        batch_size=5,
+        epoch_duration=1,
+        low_resources=False,
         dataset="hmc",
         in_channels=2,
         padding_conv1=(2, 2),

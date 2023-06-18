@@ -58,6 +58,7 @@ def get_data(
         val_percentage: float = 0.1, 
         test_percentage: float = 0.1,
         collate_fn: callable = None, 
+        seed: int = 42
         ):        
     if dataset not in ["sleepedfx", "hmc"]:
         raise ValueError(f"Dataset {dataset} not found. Check 'config.py'.")
@@ -72,7 +73,8 @@ def get_data(
         list(subject_ids),
         train_size=train_percentage + val_percentage,
         test_size=test_percentage,
-        shuffle=True
+        shuffle=True,
+        random_state=seed
     )
     # train_subjects, valid_subjects = train_test_split(
     #     list(train_subjects),

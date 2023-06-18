@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from config import configurations, Config
 from argparse import ArgumentParser, Namespace
 
@@ -10,8 +11,14 @@ import lightning.pytorch as pl
 import torch.nn as nn
 import torch
 
+def seed_everything(seed: int):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    pl.seed_everything(seed)
+
 def run(config_name: str):
     cfg: Config = configurations[config_name]
+    seed_everything(cfg.seed)
     train_loader, valid_loader, test_loader = get_data(
         root=cfg.data_dir,
         dataset=cfg.dataset,
@@ -34,9 +41,9 @@ def run(config_name: str):
         logger=logger
     )
     
-    # trainer.test(model, test_loader)
+    trainer.test(model, test_loader)
     trainer.fit(model, train_loader)
-    # trainer.test(model, test_loader)
+    trainer.test(model, test_loader)
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Perform a full train and evaluation experiment.")

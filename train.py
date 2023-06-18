@@ -19,7 +19,7 @@ def seed_everything(seed: int):
 def run(config_name: str):
     cfg: Config = configurations[config_name]
     seed_everything(cfg.seed)
-    train_loader, valid_loader, test_loader = get_data(
+    train_loader, _, test_loader = get_data(
         root=cfg.data_dir,
         dataset=cfg.dataset,
         batch_size=cfg.batch_size,

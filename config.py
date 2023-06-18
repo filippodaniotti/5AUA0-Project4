@@ -71,6 +71,7 @@ configurations: dict[str, Config] = {
     ),
     "baseline_hmc_gpu": Config(
         data_dir=join("dataset", "hmc"),
+        epochs=200,
         sampling_rate=256,
         batch_size=15,
         epoch_duration=1,

@@ -42,16 +42,14 @@ label2ann = {
 # Deault params
 DATA_DIR = "D:\HMC"
 OUTPUT_DIR = "..\dataset\hmc"
-SELECT_CHANNEL_1 = "ECG"
-SELECT_CHANNEL_2 = "EEG C4-M1"
+SELECT_CHANNEL = ["ECG", "EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2"]
 LOG_FILE = "info_ch_extract.log"
 
 
 def main(
         data_dir: str = DATA_DIR,
         output_dir: str = OUTPUT_DIR,
-        select_ch1: str = SELECT_CHANNEL_1,
-        select_ch2: str = SELECT_CHANNEL_2,
+        select_ch: str = SELECT_CHANNEL,
         log_file: str = LOG_FILE):
     
     data_dir = Path(data_dir)
@@ -86,6 +84,9 @@ def main(
     ann_fnames = np.asarray(ann_fnames)
 
     for i in range(len(psg_fnames)):
+        data_x = []; data_y = []
+        sampling_rates = []
+        n_epochs_all = []
 
         logger.info("Loading ...")
         logger.info("Signal file: {}".format(psg_fnames[i]))
@@ -106,42 +107,6 @@ def main(
             logger.info("Epoch duration: {} sec (changed from 60 sec)".format(epoch_duration))
         else:
             logger.info("Epoch duration: {} sec".format(epoch_duration))
-
-        # Extract signal from the selected channel
-        ch_names = psg_f.getSignalLabels()
-        ch_samples = psg_f.getNSamples()
-        select_ch_idx_1 = -1
-        select_ch_idx_2 = -1
-        for s in range(psg_f.signals_in_file):
-            if ch_names[s] == select_ch1:
-                select_ch_idx_1 = s
-            if ch_names[s] == select_ch2:
-                select_ch_idx_2 = s
-        if (select_ch_idx_1 == -1) or (select_ch_idx_2 == -1):
-            raise Exception("Channel not found.")
-        
-        sampling_rate_1 = psg_f.getSampleFrequency(select_ch_idx_1)
-        n_epoch_samples_1 = int(epoch_duration * sampling_rate_1)
-        signals_1 = psg_f.readSignal(select_ch_idx_1).reshape(-1, n_epoch_samples_1)
-        
-        sampling_rate_2 = psg_f.getSampleFrequency(select_ch_idx_2)
-        n_epoch_samples_2 = int(epoch_duration * sampling_rate_2)
-        signals_2 = psg_f.readSignal(select_ch_idx_2).reshape(-1, n_epoch_samples_2)
-
-        logger.info("Select channel: {}".format(select_ch1))
-        logger.info("Select channel samples: {}".format(ch_samples[select_ch_idx_1]))
-        logger.info("Sample rate: {}".format(sampling_rate_1))
-
-        logger.info("Select channel: {}".format(select_ch2))
-        logger.info("Select channel samples: {}".format(ch_samples[select_ch_idx_2]))
-        logger.info("Sample rate: {}".format(sampling_rate_2))
-
-        # Sanity check
-        n_epochs = psg_f.datarecords_in_file
-        if psg_f.datarecord_duration == 60: # Fix problems of SC4362F0-PSG.edf, SC4362FC-Hypnogram.edf
-            n_epochs = n_epochs * 2
-        assert len(signals_1) == n_epochs, f"signal: {signals_1.shape} != {n_epochs}"
-        assert len(signals_2) == n_epochs, f"signal: {signals_2.shape} != {n_epochs}"
 
         # Generate labels from onset and duration annotation
         labels = []
@@ -180,70 +145,70 @@ def main(
             logger.info("Include onset:{}, duration:{}, label:{} ({})".format(
                 onset_sec, duration_sec, label, ann_str
             ))
-        labels = np.hstack(labels)
+        labels = np.hstack(labels)    
 
-        # Remove annotations that are longer than the recorded signals
-        labels_1 = labels[:len(signals_1)]
-        labels_2 = labels[:len(signals_2)]
+        for ch in range(len(select_ch)):
+            # Extract signal from the selected channel
+            ch_names = psg_f.getSignalLabels()
+            ch_samples = psg_f.getNSamples()
+            select_ch_idx = -1
+            for s in range(psg_f.signals_in_file):
+                if ch_names[s] == select_ch[ch]:
+                    select_ch_idx = s
+            if (select_ch_idx == -1):
+                raise Exception("Channel not found.")
+            
+            sampling_rate = psg_f.getSampleFrequency(select_ch_idx)
+            n_epoch_samples = int(epoch_duration * sampling_rate)
+            signals = psg_f.readSignal(select_ch_idx).reshape(-1, n_epoch_samples)
 
-        # Get epochs and their corresponding labels
-        x1 = signals_1.astype(np.float32)
-        x2 = signals_2.astype(np.float32)
-        y1 = labels_1.astype(np.int32)
-        y2 = labels_2.astype(np.int32)
+            logger.info("Select channel: {}".format(select_ch))
+            logger.info("Select channel samples: {}".format(ch_samples[select_ch_idx]))
+            logger.info("Sample rate: {}".format(sampling_rate))
 
-        # Select only sleep periods
-        w_edge_mins = 30
-        nw_idx1 = np.where(y1 != stage_dict["W"])[0]
-        nw_idx2 = np.where(y2 != stage_dict["W"])[0]
-        start_idx1 = nw_idx1[0] - (w_edge_mins * 2)
-        start_idx2 = nw_idx2[0] - (w_edge_mins * 2)
-        end_idx1 = nw_idx1[-1] + (w_edge_mins * 2)
-        end_idx2 = nw_idx2[-1] + (w_edge_mins * 2)
-        if start_idx1 < 0: start_idx1 = 0
-        if start_idx2 < 0: start_idx2 = 0
-        if end_idx1 >= len(y1): end_idx1 = len(y1) - 1
-        if end_idx2 >= len(y2): end_idx2 = len(y2) - 1
-        select_idx1 = np.arange(start_idx1, end_idx1+1)
-        select_idx2 = np.arange(start_idx2, end_idx2+1)
+            # Sanity check
+            n_epochs = psg_f.datarecords_in_file
+            if psg_f.datarecord_duration == 60: # Fix problems of SC4362F0-PSG.edf, SC4362FC-Hypnogram.edf
+                n_epochs = n_epochs * 2
+            assert len(signals) == n_epochs, f"signal: {signals.shape} != {n_epochs}"
 
-        logger.info("Data before selection: {}, {}, {}, {}".format(x1.shape, y1.shape, x2.shape, y2.shape))
-        x1 = x1[select_idx1]
-        x2 = x2[select_idx2]
-        y1 = y1[select_idx1]
-        y2 = y2[select_idx2]
-        logger.info("Data before selection: {}, {}, {}, {}".format(x1.shape, y1.shape, x2.shape, y2.shape))
-        
-        # # Remove movement and unknown
-        # move_idx = np.where(y1 == stage_dict["MOVE"])[0]
-        # unk_idx = np.where(y == stage_dict["UNK"])[0]
-        # if len(move_idx) > 0 or len(unk_idx) > 0:
-        #     remove_idx = np.union1d(move_idx, unk_idx)
-        #     logger.info("Remove irrelavant stages")
-        #     logger.info("  Movement: ({}) {}".format(len(move_idx), move_idx))
-        #     logger.info("  Unknown: ({}) {}".format(len(unk_idx), unk_idx))
-        #     logger.info("  Remove: ({}) {}".format(len(remove_idx), remove_idx))
-        #     logger.info("  Data before removal: {}, {}, {}, {}".format(x1.shape, y1.shape, x2.shape, y2.shape))
-        #     select_idx = np.setdiff1d(np.arange(len(x1)), remove_idx)
-        #     x1 = x1[select_idx]
-        #     x2 = x2[select_idx]
-        #     y = y[select_idx]
-        #     logger.info("  Data after removal: {}, {}, {}".format(x1.shape, x2.shape, y.shape))
-        
+            # Remove annotations that are longer than the recorded signals
+            labels = labels[:len(signals)]
+
+            # Get epochs and their corresponding labels
+            x = signals.astype(np.float32)
+            y = labels.astype(np.int32)
+
+            # Select only sleep periods
+            w_edge_mins = 30
+            nw_idx = np.where(y != stage_dict["W"])[0]
+            start_idx = nw_idx[0] - (w_edge_mins * 2)
+            end_idx = nw_idx[-1] + (w_edge_mins * 2)
+            if start_idx < 0: start_idx = 0
+            if end_idx >= len(y): end_idx = len(y) - 1
+            select_idx = np.arange(start_idx, end_idx+1)
+
+            logger.info("Data before selection: {}, {}".format(x.shape, y.shape))
+            x = x[select_idx]
+            y = y[select_idx]
+            logger.info("Data before selection: {}, {}".format(x.shape, y.shape))
+
+            data_x.append(x); data_y.append(y)
+            sampling_rates.append(sampling_rate)
+            n_epochs_all.append(len(x))
+
         # Save
         filename = ntpath.basename(psg_fnames[i]).replace(".edf", ".npz")
         save_dict = {
-            "x1": x1, 
-            "x2": x2,
-            "y1": y1,
-            "y2": y2, 
-            "fs": [sampling_rate_1, sampling_rate_2],
-            "ch_label": [select_ch1, select_ch2],
+            "x": data_x, 
+            "y": y,
+            "fs": sampling_rates,
+            "ch_label": select_ch,
             "start_datetime": start_datetime,
             "file_duration": file_duration,
             "epoch_duration": epoch_duration,
             "n_all_epochs": n_epochs,
-            "n_epochs": [len(x1), len(x2)],
+            "n_epochs": n_epochs_all
         }
 
         np.savez(os.path.join(args.output_dir, filename), **save_dict)
@@ -256,9 +221,7 @@ if __name__ == "__main__":
                         help="File path to the Sleep-EDF dataset.")
     parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR,
                         help="Directory where to save outputs.")
-    parser.add_argument("--select_ch1", type=str, default=SELECT_CHANNEL_1,
-                        help="Name of the channel 1 in the dataset.")
-    parser.add_argument("--select_ch2", type=str, default = SELECT_CHANNEL_2,
+    parser.add_argument("--select_ch", type=str, default=SELECT_CHANNEL,
                         help="Name of the channel 2 in the datset."),
     parser.add_argument("--log_file", type=str, default=LOG_FILE,
                         help="Log file.")
@@ -267,6 +230,5 @@ if __name__ == "__main__":
     main(
         args.data_dir, 
         args.output_dir,
-        args.select_ch1,
-        args.select_ch2,
+        args.select_ch,
         args.log_file)

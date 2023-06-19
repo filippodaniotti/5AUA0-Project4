@@ -1,6 +1,7 @@
 import os
 import re
 import numpy as np
+from math import ceil, floor
 
 import torch
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence, pad_packed_sequence
@@ -79,8 +80,10 @@ class HMCDataset(SubjectDataset):
             self,
             root: str,
             subject_ids,
+            selected_channels: list[str] = ["EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2", "ECG"],
             ):
         super().__init__(root, subject_ids)
+        self.selected_channels = selected_channels
     
     def __len__(self) -> int:
         return super().__len__()
@@ -88,13 +91,16 @@ class HMCDataset(SubjectDataset):
     def __getitem__(self, index) -> tuple[tensor, tensor, int]:
         file = self.files[index]
         with np.load(os.path.join(self.root, file)) as f:
-            eeg = torch.tensor(f['x1'], dtype=torch.float32)
-            ecg = torch.tensor(f['x2'], dtype=torch.float32)
-            y = torch.tensor(f['y1'], dtype=torch.int64)
+            ch_labels = f['ch_label']
+            channels: list[tensor] = []
+            for channel in range(f['x'].shape[0]):
+                if ch_labels[channel] in self.selected_channels:
+                    channels.append(torch.tensor(f['x'][channel], dtype=torch.float32).unsqueeze(1))
             
-            sample = torch.cat((eeg.unsqueeze(1), ecg.unsqueeze(1)), dim=1)
+            combined = torch.cat(channels, dim=1)
+            y = torch.tensor(f['y'], dtype=torch.int64)
             
-            return sample, y
+            return combined, y
     
     def _get_subject_files(self, subject_id, files):
         """Get a list of files storing each subject data."""
@@ -135,7 +141,7 @@ def get_collator(
         if low_resources and len(inputs) > low_resources and not is_test_set:
             start = np.random.randint(0, len(inputs) - low_resources)
             inputs = inputs[start:start+low_resources]
-            targets = targets[start:start+low_resources]
+            targets = targets[start:start+low_resources]      
         
         return torch.stack(inputs), torch.stack(targets)
     return collate_fn
@@ -179,8 +185,8 @@ def get_data(
     if val_percentage > 0:
         train_subjects, valid_subjects = train_test_split(
             list(train_subjects),
-            train_size=train_percentage / (train_percentage + val_percentage),
-            test_size=val_percentage / (train_percentage + val_percentage),
+            train_size=ceil(train_percentage / (train_percentage + val_percentage)),
+            test_size=ceil(val_percentage / (train_percentage + val_percentage)),
             shuffle=True,
             random_state=seed
         )
@@ -191,7 +197,7 @@ def get_data(
     test_dataset = dataset_classes[dataset](root, test_subjects)
     
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn=train_collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, collate_fn=test_collate_fn)
+    test_loader = DataLoader(test_dataset, test_batch_size, shuffle=False, collate_fn=test_collate_fn)
     
     valid_loader = None
     if val_percentage > 0:

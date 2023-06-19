@@ -51,7 +51,7 @@ def main(
         output_dir: str = OUTPUT_DIR,
         select_ch: str = SELECT_CHANNEL,
         log_file: str = LOG_FILE):
-    
+    x
     data_dir = Path(data_dir)
     output_dir = Path(output_dir)
     log_file = Path(log_file)
@@ -75,7 +75,7 @@ def main(
     psg_fnames = []; ann_fnames = []
     for i in os.listdir(data_dir):
         if len(i) == 9: psg_fnames.append(os.path.join(data_dir, i))
-        if "sleepscoring" in i: ann_fnames.append(os.path.join(data_dir, i))
+        if "sleepscoring" in i and 'txt' not in i: ann_fnames.append(os.path.join(data_dir, i))
     # psg_fnames = glob.glob(os.path.join(data_dir, i in data_dir if len(i)==9 ))
     # ann_fnames = glob.glob(os.path.join(data_dir, "*sleepscoring.df"))
     psg_fnames.sort()

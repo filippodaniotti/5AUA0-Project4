@@ -8,7 +8,7 @@ __all__ = ["configurations", "Config"]
 @dataclass(frozen=True)
 class Config:
     # model
-    lr: float = 0.0001
+    learning_rate: float = 0.0001
     weight_decay: float = 1e-4
     num_classes: num_classes = 5
     sampling_rate: int = 100
@@ -59,7 +59,7 @@ configurations: dict[str, Config] = {
         epoch_duration=1,
         low_resources=128,
         dataset="hmc",
-        in_channels=2,
+        in_channels=5,
         padding_conv1=(2, 2),
         padding_max_pool1=(4, 4),
         padding_conv2=(3, 4),
@@ -77,7 +77,7 @@ configurations: dict[str, Config] = {
         epoch_duration=1,
         low_resources=2048,
         dataset="hmc",
-        in_channels=2,
+        in_channels=1,
         padding_conv1=(2, 2),
         padding_max_pool1=(4, 4),
         padding_conv2=(3, 4),

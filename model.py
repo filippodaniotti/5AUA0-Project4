@@ -13,12 +13,18 @@ class SleepStagingModel(pl.LightningModule):
             model: nn.Module, 
             cost_function: nn.Module,
             config: Config,
-            evaluate: bool = False):
+            evaluate: bool = False,
+            learning_rate: float = None,
+            weight_decay: float = None):
         super().__init__()
         self.cfg = config
         self.model = model    
         self.cost_fn = cost_function
         self.accuracy = Accuracy(task="multiclass", num_classes=self.cfg.num_classes)
+        
+        
+        self.lr = learning_rate if learning_rate else self.cfg.learning_rate
+        self.wd = weight_decay if weight_decay else self.cfg.weight_decay
         
         self.idx_to_class = {
             0: "Sleep stage W",
@@ -101,21 +107,28 @@ if __name__ == "__main__":
     conf = configurations["baseline_hmc"]
     model = SleepStagingModel(TinySleepNet(conf), nn.CrossEntropyLoss(), conf)
     
-    train_loader, *_ = get_data(
+    train_loader, _, test_loader = get_data(
         root=conf.data_dir,
         dataset=conf.dataset,
         batch_size=conf.batch_size,
-        train_percentage=0.8,
-        val_percentage=0.1,
+        test_batch_size=conf.test_batch_size,
+        train_percentage=0.9,
+        val_percentage=0.0,
         test_percentage=0.1,
-        collate_fn=get_collator(
+        train_collate_fn=get_collator(
             epoch_duration=conf.epoch_duration,
             in_channels=conf.in_channels,
             sampling_rate=conf.sampling_rate,
-            low_resources=conf.low_resources)
+            low_resources=conf.low_resources),
+        test_collate_fn=get_collator(
+            epoch_duration=conf.epoch_duration,
+            in_channels=conf.in_channels,
+            sampling_rate=conf.sampling_rate,
+            low_resources=conf.low_resources,
+            is_test_set=True)
     )
     
-    for t, s in train_loader:
+    for t, s in test_loader:
         print(t.shape)
         print(s.shape)
         o = model(t)

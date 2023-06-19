@@ -2,6 +2,7 @@ numpy
 pandas
 torch
 pyedflib
+heartpy
 ipykernel
 matplotlib
 xlrd

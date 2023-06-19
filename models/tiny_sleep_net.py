@@ -11,28 +11,38 @@ class TinySleepNet(nn.Module):
         super().__init__()
         self.cfg = config
         
-        self.padding_edf = {  # same padding in tensorflow
-            'conv1': (22, 22),
-            'max_pool1': (2, 2),
-            'conv2': (3, 4),
-            'max_pool2': (0, 1),
+        self.kernel_sizes = {
+            'conv1': self.cfg.kernel_sizes_conv1,
+            'max_pool1': self.cfg.kernel_sizes_max_pool1,
+        }
+        
+        self.strides = {
+            'conv1': self.cfg.strides_conv1,
+            'max_pool1': self.cfg.strides_max_pool1,
+        }
+        
+        self.padding = {
+            'conv1': self.cfg.padding_conv1,
+            'max_pool1': self.cfg.padding_max_pool1,
+            'conv2': self.cfg.padding_conv2,
+            'max_pool2': self.cfg.padding_max_pool2
         }
         
         self.representation = nn.Sequential(
             *self._get_conv_block(
                 in_channels=self.cfg.in_channels,
                 out_channels=128,
-                kernel_size=int(self.cfg.sampling_rate / 2),
-                stride=int(self.cfg.sampling_rate / 16),
-                padding=self.padding_edf['conv1'],
+                kernel_size=self.kernel_sizes['conv1'],
+                stride=self.strides['conv1'],
+                padding=self.padding['conv1'],
                 ),
-            nn.ConstantPad1d(self.padding_edf['max_pool1'], 0),
-            nn.MaxPool1d(8, stride=8),
+            nn.ConstantPad1d(self.padding['max_pool1'], 0),
+            nn.MaxPool1d(self.kernel_sizes['max_pool1'], stride=self.strides['max_pool1']),
             nn.Dropout(p=.5),
-            *self._get_conv_block(128, 128, 8, 1, self.padding_edf['conv2']),
-            *self._get_conv_block(128, 128, 8, 1, self.padding_edf['conv2']),
-            *self._get_conv_block(128, 128, 8, 1, self.padding_edf['conv2']),
-            nn.ConstantPad1d(self.padding_edf['max_pool2'], 0),
+            *self._get_conv_block(128, 128, 8, 1, self.padding['conv2']),
+            *self._get_conv_block(128, 128, 8, 1, self.padding['conv2']),
+            *self._get_conv_block(128, 128, 8, 1, self.padding['conv2']),
+            nn.ConstantPad1d(self.padding['max_pool2'], 0),
             nn.MaxPool1d(4, stride=4),
             nn.Flatten(),
             nn.Dropout(p=.5),
@@ -49,14 +59,17 @@ class TinySleepNet(nn.Module):
     
     def forward(self, x, state = None):
         batch_length = x.shape[0]
-        x = x.view(batch_length * self.cfg.seq_len, -1).unsqueeze(1)
+        # print(x.shape)
+        x = x.view(batch_length * self.cfg.seq_len, self.cfg.in_channels, -1)
+        # print(x.shape)
         x = self.representation(x)
+        # print(x.shape)
         x = x.view(-1, self.cfg.seq_len, 2048)  # batch first == True
+        # print(x.shape)
         assert x.shape[-1] == 2048
-        # if state[0].shape[1] != bs:
-        #     state = state[0][:, :bs, :], state[1][:, :bs, :]
         x, state = self.rnn(x, state)
         x = x.reshape(-1, self.cfg.rnn_hidden_size)
+        # print(x.shape)
         # rnn output shape(seq_length, batch_size, hidden_size)
         x = self.rnn_dropout(x)
         x = self.fc(x)
@@ -77,7 +90,6 @@ class TinySleepNet(nn.Module):
                 out_channels=out_channels,
                 kernel_size=kernel_size,
                 stride=stride,
-                padding=0,
             ),
             nn.BatchNorm1d(num_features=out_channels, eps=0.001, momentum=0.01),
             nn.ReLU(inplace=True),

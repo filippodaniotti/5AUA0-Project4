@@ -32,25 +32,30 @@ class SubjectDataset(Dataset):
     
         
     def __getitem__(self, index) -> tuple[tensor, tensor, int]:
+        raise NotImplementedError("This method should be implemented in a subclass.")
+    
+    def _get_subject_files(self, subject_id, files):
+        raise NotImplementedError("This method should be implemented in a subclass.")
+
+class SleepEDFxDataset(SubjectDataset):
+    def __init__(
+            self,
+            root: str,
+            subject_ids,
+            ):
+        super().__init__(root, subject_ids)
+    
+    def __len__(self) -> int:
+        return super().__len__()
+        
+    def __getitem__(self, index) -> tuple[tensor, tensor, int]:
         file = self.files[index]
         with np.load(os.path.join(self.root, file)) as f:
             x = torch.tensor(f['x'], dtype=torch.float32)
             y = torch.tensor(f['y'], dtype=torch.int64)
             length = f['n_epochs'].item()
             
-            # # random crop to seq_len
-            # if x.shape[0] > 20:
-            #     start = np.random.randint(0, x.shape[0] - 20)
-            #     x = x[start:start+20, :]
-            #     y = y[start:start+20]
-            
-            # print(    f"input data shape: {x.shape}",)
-            # print(    f"sampling rate: {f['fs']}",)
-            # print(    f"file duration: {f['file_duration']}",)
-            # print(    f"duration of a single epoch: {f['epoch_duration']}",)
-            # print(    f"total number of epochs: {f['n_all_epochs']}",)
-            # print(    f"actual number of epochs: {f['n_epochs']}",)
-            return x, y
+            return x.unsqueeze(1), y
     
     def _get_subject_files(self, subject_id, files):
         """Get a list of files storing each subject data."""
@@ -68,7 +73,45 @@ class SubjectDataset(Dataset):
 
         return subject_files
     
-def get_collator(seq_len: int = 20, low_resources: int = 0):
+    
+class HMCDataset(SubjectDataset):
+    def __init__(
+            self,
+            root: str,
+            subject_ids,
+            ):
+        super().__init__(root, subject_ids)
+    
+    def __len__(self) -> int:
+        return super().__len__()
+        
+    def __getitem__(self, index) -> tuple[tensor, tensor, int]:
+        file = self.files[index]
+        with np.load(os.path.join(self.root, file)) as f:
+            eeg = torch.tensor(f['x1'], dtype=torch.float32)
+            ecg = torch.tensor(f['x2'], dtype=torch.float32)
+            y = torch.tensor(f['y1'], dtype=torch.int64)
+            
+            sample = torch.cat((eeg.unsqueeze(1), ecg.unsqueeze(1)), dim=1)
+            
+            return sample, y
+    
+    def _get_subject_files(self, subject_id, files):
+        """Get a list of files storing each subject data."""
+        # Get the subject files based on ID
+        subject_files = [f"SN{int(subject_id):03d}.npz"]
+
+        return subject_files
+
+
+    
+def get_collator(
+        seq_len: int = 20, 
+        in_channels: int = 1,
+        sampling_rate: int = 100,
+        epoch_duration: int = 30,
+        low_resources: int = 0,
+        is_test_set: bool = False):
     def collate_fn(batch: list[tuple[tensor, tensor]]):
         inputs = []
         targets = []
@@ -80,7 +123,7 @@ def get_collator(seq_len: int = 20, low_resources: int = 0):
             tar = tar[:n_epochs - n_epochs % seq_len]
             
             # reshape it to [seqs, seq_len, fs*epoch_duration]
-            inp = inp.view(-1, seq_len, 3000)
+            inp = inp.view(-1, seq_len, in_channels, sampling_rate * epoch_duration)
             tar = tar.view(-1, seq_len)
             
             inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
@@ -89,7 +132,7 @@ def get_collator(seq_len: int = 20, low_resources: int = 0):
             inputs.extend(inp)
             targets.extend(tar)
             
-        if low_resources and len(inputs) > low_resources:
+        if low_resources and len(inputs) > low_resources and not is_test_set:
             start = np.random.randint(0, len(inputs) - low_resources)
             inputs = inputs[start:start+low_resources]
             targets = targets[start:start+low_resources]
@@ -97,44 +140,68 @@ def get_collator(seq_len: int = 20, low_resources: int = 0):
         return torch.stack(inputs), torch.stack(targets)
     return collate_fn
 
+def get_subject_ids(files, dataset):
+    ids_boundaries = {
+        "sleepedfx": (3, 5),
+        "hmc": (2, 5)
+    }
+    start, end = ids_boundaries[dataset]
+    return {file[start:end] for file in files}
+
 def get_data(
         root: str,
+        dataset: str,
         batch_size: int = 15,
+        test_batch_size: int = 1,
         train_percentage: float = 0.8, 
         val_percentage: float = 0.1, 
         test_percentage: float = 0.1,
-        collate_fn: callable = None, 
+        train_collate_fn: callable = None, 
+        test_collate_fn: callable = None, 
+        seed: int = 42
         ):        
+    if dataset not in ["sleepedfx", "hmc"]:
+        raise ValueError(f"Dataset {dataset} not found. Check 'config.py'.")
+    
     # get subject ids 
     files = [file for file in os.listdir(root) if file.endswith(".npz")]
-    subject_ids = {file[3:5] for file in files}
+    subject_ids = get_subject_ids(files, dataset)
     
     
     train_subjects, test_subjects = train_test_split(
         list(subject_ids),
         train_size=train_percentage + val_percentage,
         test_size=test_percentage,
-        shuffle=True
-    )
-    train_subjects, valid_subjects = train_test_split(
-        list(train_subjects),
-        train_size=train_percentage / (train_percentage + val_percentage),
-        test_size=val_percentage / (train_percentage + val_percentage),
-        shuffle=True
+        shuffle=True,
+        random_state=seed
     )
     
-    train_dataset = SubjectDataset(root, train_subjects)
-    valid_dataset = SubjectDataset(root, valid_subjects)
-    test_dataset = SubjectDataset(root, test_subjects)
+    if val_percentage > 0:
+        train_subjects, valid_subjects = train_test_split(
+            list(train_subjects),
+            train_size=train_percentage / (train_percentage + val_percentage),
+            test_size=val_percentage / (train_percentage + val_percentage),
+            shuffle=True,
+            random_state=seed
+        )
     
-    train_loader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn=collate_fn)
-    valid_loader = DataLoader(valid_dataset, batch_size, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, collate_fn=collate_fn)
+    dataset_classes = {'sleepedfx': SleepEDFxDataset, 'hmc': HMCDataset}
+    
+    train_dataset = dataset_classes[dataset](root, train_subjects)
+    test_dataset = dataset_classes[dataset](root, test_subjects)
+    
+    train_loader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn=train_collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, collate_fn=test_collate_fn)
+    
+    valid_loader = None
+    if val_percentage > 0:
+        valid_dataset = dataset_classes[dataset](root, valid_subjects)
+        valid_loader = DataLoader(valid_dataset, batch_size, shuffle=False, collate_fn=test_collate_fn)
     
     return train_loader, valid_loader, test_loader
     
 if __name__ == "__main__":
-    train, *_ = get_data(os.path.join("dataset", "sleepedfx", "sleep-cassette", "eeg_fpz_cz"), collate_fn=get_collator(low_resources=True))
+    train, *_ = get_data(os.path.join("dataset", "hmc"), train_collate_fn=get_collator(sampling_rate=256, epoch_duration=1,   low_resources=128), test_collate_fn=get_collator(sampling_rate=256, epoch_duration=1,   low_resources=128), is_test_set=True)
     # inpsp = None 
     for idx, (inp, tar) in enumerate(train):
         print(type(inp))

@@ -28,9 +28,10 @@ class TinySleepNet(nn.Module):
             'max_pool2': self.cfg.padding_max_pool2
         }
         
+        
         self.representation = nn.Sequential(
             *self._get_conv_block(
-                in_channels=self.cfg.in_channels,
+                in_channels=self.cfg.n_in_channels,
                 out_channels=128,
                 kernel_size=self.kernel_sizes['conv1'],
                 stride=self.strides['conv1'],

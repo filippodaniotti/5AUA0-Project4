@@ -157,6 +157,7 @@ def get_subject_ids(files, dataset):
 def get_data(
         root: str,
         dataset: str,
+        selected_channels: list[str] = None,
         batch_size: int = 15,
         test_batch_size: int = 1,
         train_percentage: float = 0.8, 
@@ -193,8 +194,12 @@ def get_data(
     
     dataset_classes = {'sleepedfx': SleepEDFxDataset, 'hmc': HMCDataset}
     
-    train_dataset = dataset_classes[dataset](root, train_subjects)
-    test_dataset = dataset_classes[dataset](root, test_subjects)
+    if dataset == "hmc":
+        train_dataset = dataset_classes[dataset](root, train_subjects, selected_channels)
+        test_dataset = dataset_classes[dataset](root, test_subjects, selected_channels)
+    else:
+        train_dataset = dataset_classes[dataset](root, train_subjects)
+        test_dataset = dataset_classes[dataset](root, test_subjects)
     
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn=train_collate_fn)
     test_loader = DataLoader(test_dataset, test_batch_size, shuffle=False, collate_fn=test_collate_fn)

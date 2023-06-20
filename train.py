@@ -22,6 +22,7 @@ def run(config_name: str):
     train_loader, _, test_loader = get_data(
         root=cfg.data_dir,
         dataset=cfg.dataset,
+        selected_channels=cfg.in_channels,
         batch_size=cfg.batch_size,
         test_batch_size=cfg.test_batch_size,
         train_percentage=0.9,

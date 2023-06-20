@@ -81,26 +81,50 @@ class HMCDataset(SubjectDataset):
             root: str,
             subject_ids,
             selected_channels: list[str] = ["EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2", "ECG"],
+            epoch_duration: int = 12,
             ):
         super().__init__(root, subject_ids)
         self.selected_channels = selected_channels
+        self.epoch_duration = epoch_duration
     
     def __len__(self) -> int:
         return super().__len__()
         
     def __getitem__(self, index) -> tuple[tensor, tensor, int]:
         file = self.files[index]
+        
         with np.load(os.path.join(self.root, file)) as f:
             ch_labels = f['ch_label']
             channels: list[tensor] = []
             for channel in range(f['x'].shape[0]):
                 if ch_labels[channel] in self.selected_channels:
-                    channels.append(torch.tensor(f['x'][channel], dtype=torch.float32).unsqueeze(1))
+                    x = torch.tensor(f['x'][channel], dtype=torch.float32)
+                    if x.shape[0] % self.epoch_duration != 0:
+                        x = x[:x.shape[0] - x.shape[0] % self.epoch_duration]
+                    x = x.view(-1, 256 * self.epoch_duration)
+                    channels.append(x.unsqueeze(1))
             
             combined = torch.cat(channels, dim=1)
-            y = torch.tensor(f['y'], dtype=torch.int64)
             
-            return combined, y
+            y = torch.tensor(f['y'], dtype=torch.int64)
+            if y.shape[0] % self.epoch_duration != 0:
+                y = y[:y.shape[0] - y.shape[0] % self.epoch_duration]
+                
+            agg_labels: list[int] = []
+            for idx in range(0, y.shape[0], self.epoch_duration):
+                epoch_labels = y[idx * self.epoch_duration : (idx+1) * self.epoch_duration]
+                try:
+                    # print(epoch_labels.mode().values.item())
+                    agg_labels.append(epoch_labels.mode().values.item())
+                except IndexError:
+                    agg_labels.append(0)
+                    # print(idx)
+                    # print(epoch_labels)
+                    # print(x[idx])
+                    # print(epoch_labels.mode().values[0].item())
+            labels = torch.tensor(agg_labels, dtype=torch.int64)
+            
+            return combined, labels
     
     def _get_subject_files(self, subject_id, files):
         """Get a list of files storing each subject data."""
@@ -125,18 +149,24 @@ def get_collator(
         for inp, tar in batch:
             # strip tensors to multiple of seq_len
             n_epochs = inp.shape[0]
+            # print(inp.shape)
             inp = inp[:n_epochs - n_epochs % seq_len, :]
             tar = tar[:n_epochs - n_epochs % seq_len]
+            # print(inp.shape)
             
             # reshape it to [seqs, seq_len, fs*epoch_duration]
             inp = inp.view(-1, seq_len, in_channels, sampling_rate * epoch_duration)
+            # print(inp.shape)
             tar = tar.view(-1, seq_len)
             
             inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
             tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
+            # print(len(inp))
             
             inputs.extend(inp)
             targets.extend(tar)
+        
+        print(low_resources)
             
         if low_resources and len(inputs) > low_resources and not is_test_set:
             start = np.random.randint(0, len(inputs) - low_resources)
@@ -157,6 +187,7 @@ def get_subject_ids(files, dataset):
 def get_data(
         root: str,
         dataset: str,
+        epoch_duration: int = 30,
         selected_channels: list[str] = None,
         batch_size: int = 15,
         test_batch_size: int = 1,
@@ -195,8 +226,8 @@ def get_data(
     dataset_classes = {'sleepedfx': SleepEDFxDataset, 'hmc': HMCDataset}
     
     if dataset == "hmc":
-        train_dataset = dataset_classes[dataset](root, train_subjects, selected_channels)
-        test_dataset = dataset_classes[dataset](root, test_subjects, selected_channels)
+        train_dataset = dataset_classes[dataset](root, train_subjects, selected_channels, epoch_duration)
+        test_dataset = dataset_classes[dataset](root, test_subjects, selected_channels, epoch_duration)
     else:
         train_dataset = dataset_classes[dataset](root, train_subjects)
         test_dataset = dataset_classes[dataset](root, test_subjects)

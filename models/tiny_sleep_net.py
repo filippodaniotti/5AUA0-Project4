@@ -61,7 +61,7 @@ class TinySleepNet(nn.Module):
     def forward(self, x, state = None):
         batch_length = x.shape[0]
         # print(x.shape)
-        x = x.view(batch_length * self.cfg.seq_len, self.cfg.in_channels, -1)
+        x = x.view(batch_length * self.cfg.seq_len, self.cfg.n_in_channels, -1)
         # print(x.shape)
         x = self.representation(x)
         # print(x.shape)

@@ -22,6 +22,7 @@ def run(config_name: str):
     train_loader, _, test_loader = get_data(
         root=cfg.data_dir,
         dataset=cfg.dataset,
+        epoch_duration=cfg.epoch_duration,
         selected_channels=cfg.in_channels,
         batch_size=cfg.batch_size,
         test_batch_size=cfg.test_batch_size,
@@ -30,17 +31,17 @@ def run(config_name: str):
         test_percentage=0.1,
         train_collate_fn=get_collator(
             sampling_rate=cfg.sampling_rate,
-            in_channels=cfg.in_channels,
+            in_channels=cfg.n_in_channels,
             epoch_duration=cfg.epoch_duration,
             low_resources=cfg.low_resources),
         test_collate_fn=get_collator(
             sampling_rate=cfg.sampling_rate,
-            in_channels=cfg.in_channels,
+            in_channels=cfg.n_in_channels,
             epoch_duration=cfg.epoch_duration,
             low_resources=cfg.low_resources,
             is_test_set=True)
     )
-    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1., 1.5, 1., 1., 1.]))
+    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1., 1.5, 1., 1., 1.]), ignore_index=-1)
     model = SleepStagingModel(TinySleepNet(cfg), criterion, cfg)
     logger = pl.loggers.TensorBoardLogger(cfg.logs_dir, config_name)
     trainer = pl.Trainer(

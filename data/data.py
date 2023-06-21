@@ -107,22 +107,17 @@ class HMCDataset(SubjectDataset):
             combined = torch.cat(channels, dim=1)
             
             y = torch.tensor(f['y'], dtype=torch.int64)
+            # print(y.shape)
             if y.shape[0] % self.epoch_duration != 0:
                 y = y[:y.shape[0] - y.shape[0] % self.epoch_duration]
+            # print(y.shape)
                 
             agg_labels: list[int] = []
             for idx in range(0, y.shape[0], self.epoch_duration):
-                epoch_labels = y[idx * self.epoch_duration : (idx+1) * self.epoch_duration]
-                try:
-                    # print(epoch_labels.mode().values.item())
-                    agg_labels.append(epoch_labels.mode().values.item())
-                except IndexError:
-                    agg_labels.append(0)
-                    # print(idx)
-                    # print(epoch_labels)
-                    # print(x[idx])
-                    # print(epoch_labels.mode().values[0].item())
+                epoch_labels = y[idx : (idx+1)]
+                agg_labels.append(epoch_labels.mode().values.item())
             labels = torch.tensor(agg_labels, dtype=torch.int64)
+            # print("getitem", combined.shape, labels.shape, self.epoch_duration)
             
             return combined, labels
     
@@ -149,24 +144,24 @@ def get_collator(
         for inp, tar in batch:
             # strip tensors to multiple of seq_len
             n_epochs = inp.shape[0]
-            # print(inp.shape)
+            print(inp.shape)
             inp = inp[:n_epochs - n_epochs % seq_len, :]
             tar = tar[:n_epochs - n_epochs % seq_len]
-            # print(inp.shape)
+            print(inp.shape)
             
             # reshape it to [seqs, seq_len, fs*epoch_duration]
             inp = inp.view(-1, seq_len, in_channels, sampling_rate * epoch_duration)
-            # print(inp.shape)
+            print(inp.shape)
             tar = tar.view(-1, seq_len)
             
             inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
             tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
-            # print(len(inp))
+            print(len(inp))
             
             inputs.extend(inp)
             targets.extend(tar)
         
-        print(low_resources)
+        # print(low_resources)
             
         if low_resources and len(inputs) > low_resources and not is_test_set:
             start = np.random.randint(0, len(inputs) - low_resources)

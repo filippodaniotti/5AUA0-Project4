@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Set job requirements
-SBATCH --nodes=1
-SBATCH --gpus-per-node=1
-SBATCH --partition=gpu
-SBATCH --time=5:00
-SBATCH --mail-type=BEGIN,END
-SBATCH --mail-user=f.daniotti@student.tue.nl
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=1
+#SBATCH --partition=gpu
+#SBATCH --time=2:00:00
+#SBATCH --mail-type=BEGIN,END
+#SBATCH --mail-user=f.daniotti@student.tue.nl
 
 # go into your project folder
 cd $TMPDIR/project/5AUA0-Project4
@@ -18,4 +18,8 @@ source venv/bin/activate
 git checkout master
 
 # run your code
-python3 run.py -c $1
+python3 train.py -c hmc_gpu_c4m1_e12
+# python3 train.py -c hmc_gpu_o2m1
+# python3 train.py -c hmc_gpu_f4m1
+# python3 train.py -c hmc_gpu_c3m2
+# python3 train.py -c hmc_gpu_ecg

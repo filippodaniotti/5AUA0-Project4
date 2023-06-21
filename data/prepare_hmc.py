@@ -41,7 +41,7 @@ label2ann = {
 
 # Deault params
 DATA_DIR = "D:\HMC"
-OUTPUT_DIR = "..\dataset\hmc"
+OUTPUT_DIR = "D:\hmc_prepared"
 SELECT_CHANNEL = ["ECG", "EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2"]
 LOG_FILE = "info_ch_extract.log"
 
@@ -51,7 +51,7 @@ def main(
         output_dir: str = OUTPUT_DIR,
         select_ch: str = SELECT_CHANNEL,
         log_file: str = LOG_FILE):
-    x
+    
     data_dir = Path(data_dir)
     output_dir = Path(output_dir)
     log_file = Path(log_file)
@@ -59,9 +59,9 @@ def main(
     # Output dir
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    else:
-        shutil.rmtree(output_dir)
-        os.makedirs(output_dir)
+    # else:
+        # shutil.rmtree(output_dir)
+        # os.makedirs(output_dir)
 
     log_file = os.path.join(output_dir, log_file)
 
@@ -75,7 +75,7 @@ def main(
     psg_fnames = []; ann_fnames = []
     for i in os.listdir(data_dir):
         if len(i) == 9: psg_fnames.append(os.path.join(data_dir, i))
-        if "sleepscoring" in i and 'txt' not in i: ann_fnames.append(os.path.join(data_dir, i))
+        if "sleepscoring.edf" in i: ann_fnames.append(os.path.join(data_dir, i))
     # psg_fnames = glob.glob(os.path.join(data_dir, i in data_dir if len(i)==9 ))
     # ann_fnames = glob.glob(os.path.join(data_dir, "*sleepscoring.df"))
     psg_fnames.sort()

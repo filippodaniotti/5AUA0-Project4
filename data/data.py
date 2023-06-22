@@ -108,12 +108,13 @@ class HMCDataset(SubjectDataset):
                 hr = np.repeat(f['hr'], 256, axis=1)
                 if hr.shape[0] % self.epoch_duration != 0:
                     hr = hr[:hr.shape[0] - hr.shape[0] % self.epoch_duration]
-                channels.append(torch.tensor(hr, dtype=torch.float32).unsqueeze(1))
+                hr = torch.tensor(hr, dtype=torch.float32) \
+                    .view(-1, 256 * self.epoch_duration) \
+                    .unsqueeze(1)
+                channels.append(hr)
             
             combined = torch.cat(channels, dim=1)
-            print(combined.shape)
-            import sys
-            sys.exit()
+            # print(combined.shape)
             
             y = torch.tensor(f['y'], dtype=torch.int64)
             # print(y.shape)
@@ -163,12 +164,13 @@ def get_collator(
             # print(inp.shape)
             tar = tar.view(-1, seq_len)
             
-            inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
-            tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
-            # print(len(inp))
-            
-            inputs.extend(inp)
-            targets.extend(tar)
+            if inp.shape[0] > 0: # throw away invalid samples    
+                inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
+                tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
+                # print(len(inp))
+                
+                inputs.extend(inp)
+                targets.extend(tar)
         
         # print(low_resources)
             

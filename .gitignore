@@ -135,5 +135,5 @@ dataset/*
 !dataset/README.md
 
 *.pth
-experiments_logs/
+experiments_logs*/
 lightning_logs

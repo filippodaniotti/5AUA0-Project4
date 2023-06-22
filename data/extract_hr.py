@@ -105,11 +105,11 @@ def heartRate(ecg, eeg, ann, fs):
     ecg = np.ndarray.tolist(ecg)
     eeg = np.ndarray.tolist(eeg)
 
-    data = [heart_rate, ecg]
+    data = [ecg]
     for i in range(len(eeg)):
         data.append(eeg[i])
 
-    return data, ann
+    return data, heart_rate, ann
 
 input_dir = 'D:\hmc_prepared'
 output_dir = 'D:\hr_extracted'
@@ -127,22 +127,23 @@ for f in range(len(files)):
     ecg, eeg_channels, ann, eeg_labels, fs, data = viewData(os.path.join(input_dir, files[f]))
 
     try:
-        x, y = heartRate(ecg, eeg_channels, ann, fs)
+        x, hr, y = heartRate(ecg, eeg_channels, ann, fs)
     except hp.exceptions.BadSignalWarning as err:
         print("File thrown out due to error:", err)
     else:
-        ch_labels = ["HR", "ECG"]
+        ch_labels = ["ECG"]
         for i in range(len(eeg_labels)):
             ch_labels.append(eeg_labels[i])
 
         save_dict = {
-            "x": x, 
+            "x": x,
+            "hr": hr, 
             "y": y,
             "fs": fs,
             "ch_label": ch_labels
         }
         print("Saving data")
 
-        np.savez(os.path.join(output_dir, files[f]), **data)
+        np.savez(os.path.join(output_dir, files[f]), **save_dict)
 
         print("Data is now saved in new directory, containing 6 channels: hr, ecg and 4x eeg", "\n")

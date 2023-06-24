@@ -84,32 +84,35 @@ class SleepStagingModel(pl.LightningModule):
     def compute_metrics(self):
         predicted = torch.cat(self.predictions, dim=0).detach().cpu().numpy()
         targets = torch.cat(self.targets, dim=0).detach().cpu().numpy()
+        targets = targets.reshape(-1)
         report = classification_report(
             targets, 
             predicted, 
-            labels=list(self.class_to_idx.keys()), 
-            target_names=list(self.class_to_idx.values()),
+            labels=list(self.idx_to_class.keys()), 
+            target_names=list(self.idx_to_class.values()),
             output_dict=True
         )
         matrix = confusion_matrix(
             targets,
             predicted,
-            labels=list(self.class_to_idx.keys())
+            labels=list(self.idx_to_class.keys())
         )
-        kappa = cohen_kappa_score(targets, predicted, self.class_to_idx.keys())
-        return {"report": report, "matrix": matrix, "kappa": kappa}
+        # kappa = cohen_kappa_score(targets, predicted, labels=self.idx_to_class.keys())
+        return {"report": report, "matrix": matrix, }
     
 
 if __name__ == "__main__":
     from config import configurations
     from data.data import get_data, get_collator
     
-    conf = configurations["baseline_hmc"]
+    conf = configurations["hmc_gpu_3ch_e30_hr"]
     model = SleepStagingModel(TinySleepNet(conf), nn.CrossEntropyLoss(), conf)
     
     train_loader, _, test_loader = get_data(
         root=conf.data_dir,
         dataset=conf.dataset,
+        epoch_duration=conf.epoch_duration,
+        selected_channels=conf.in_channels,
         batch_size=conf.batch_size,
         test_batch_size=conf.test_batch_size,
         train_percentage=0.9,
@@ -117,18 +120,18 @@ if __name__ == "__main__":
         test_percentage=0.1,
         train_collate_fn=get_collator(
             epoch_duration=conf.epoch_duration,
-            in_channels=conf.in_channels,
+            in_channels=conf.n_in_channels,
             sampling_rate=conf.sampling_rate,
             low_resources=conf.low_resources),
         test_collate_fn=get_collator(
             epoch_duration=conf.epoch_duration,
-            in_channels=conf.in_channels,
+            in_channels=conf.n_in_channels,
             sampling_rate=conf.sampling_rate,
             low_resources=conf.low_resources,
             is_test_set=True)
     )
     
-    for t, s in test_loader:
+    for t, s in train_loader:
         print(t.shape)
         print(s.shape)
         o = model(t)

@@ -80,7 +80,7 @@ class HMCDataset(SubjectDataset):
             self,
             root: str,
             subject_ids,
-            selected_channels: list[str] = ["EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2", "ECG"],
+            selected_channels: list[str] = ["EEG C4-M1"],
             epoch_duration: int = 12,
             ):
         super().__init__(root, subject_ids)
@@ -103,8 +103,18 @@ class HMCDataset(SubjectDataset):
                         x = x[:x.shape[0] - x.shape[0] % self.epoch_duration]
                     x = x.view(-1, 256 * self.epoch_duration)
                     channels.append(x.unsqueeze(1))
+                    
+            if "HR" in self.selected_channels:
+                hr = np.repeat(f['hr'], 256, axis=1)
+                if hr.shape[0] % self.epoch_duration != 0:
+                    hr = hr[:hr.shape[0] - hr.shape[0] % self.epoch_duration]
+                hr = torch.tensor(hr, dtype=torch.float32) \
+                    .view(-1, 256 * self.epoch_duration) \
+                    .unsqueeze(1)
+                channels.append(hr)
             
             combined = torch.cat(channels, dim=1)
+            # print(combined.shape)
             
             y = torch.tensor(f['y'], dtype=torch.int64)
             # print(y.shape)
@@ -144,22 +154,23 @@ def get_collator(
         for inp, tar in batch:
             # strip tensors to multiple of seq_len
             n_epochs = inp.shape[0]
-            print(inp.shape)
+            # print(inp.shape)
             inp = inp[:n_epochs - n_epochs % seq_len, :]
             tar = tar[:n_epochs - n_epochs % seq_len]
-            print(inp.shape)
+            # print(inp.shape)
             
             # reshape it to [seqs, seq_len, fs*epoch_duration]
             inp = inp.view(-1, seq_len, in_channels, sampling_rate * epoch_duration)
-            print(inp.shape)
+            # print(inp.shape)
             tar = tar.view(-1, seq_len)
             
-            inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
-            tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
-            print(len(inp))
-            
-            inputs.extend(inp)
-            targets.extend(tar)
+            if inp.shape[0] > 0: # throw away invalid samples    
+                inp = [t.squeeze() for t in torch.chunk(inp, inp.shape[0], dim=0)]
+                tar = [t.squeeze() for t in torch.chunk(tar, tar.shape[0], dim=0)]
+                # print(len(inp))
+                
+                inputs.extend(inp)
+                targets.extend(tar)
         
         # print(low_resources)
             

@@ -83,6 +83,8 @@ def main(
     psg_fnames = np.asarray(psg_fnames)
     ann_fnames = np.asarray(ann_fnames)
 
+    w = 0; n1 = 0; n2 = 0; n34 = 0; r = 0
+
     for i in range(len(psg_fnames)):
         data_x = []; data_y = []
         sampling_rates = []
@@ -145,7 +147,14 @@ def main(
             logger.info("Include onset:{}, duration:{}, label:{} ({})".format(
                 onset_sec, duration_sec, label, ann_str
             ))
-        labels = np.hstack(labels)    
+        labels = np.hstack(labels)
+
+        # # count sleep stages
+        # w = w + np.count_nonzero(labels==0)
+        # n1 = n1 + np.count_nonzero(labels==1)
+        # n2 = n2 + np.count_nonzero(labels==2)
+        # n34 = n34 + np.count_nonzero(labels==3)
+        # r = r + np.count_nonzero(labels==4)    
 
         for ch in range(len(select_ch)):
             # Extract signal from the selected channel
@@ -197,6 +206,14 @@ def main(
             sampling_rates.append(sampling_rate)
             n_epochs_all.append(len(x))
 
+        # count sleep stages
+        w = w + np.count_nonzero(y==0)
+        n1 = n1 + np.count_nonzero(y==1)
+        n2 = n2 + np.count_nonzero(y==2)
+        n34 = n34 + np.count_nonzero(y==3)
+        r = r + np.count_nonzero(y==4)
+
+
         # Save
         filename = ntpath.basename(psg_fnames[i]).replace(".edf", ".npz")
         save_dict = {
@@ -212,8 +229,10 @@ def main(
         }
 
         np.savez(os.path.join(args.output_dir, filename), **save_dict)
-        print(os.path.join(args.output_dir, filename))
+        # print(os.path.join(args.output_dir, filename))
         logger.info("\n=======================================\n")
+
+    print("W:", w, '\n', "N1:", n1, '\n', "N2:", n2, '\n', "N3/4:", n34, '\n', "R:", r)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

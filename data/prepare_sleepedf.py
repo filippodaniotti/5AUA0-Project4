@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from data.sleepstage import stage_dict
+from sleepstage import stage_dict
 # from logger import get_logger
 import logging
 
@@ -38,11 +38,10 @@ label2ann = {
 }
 
 # Deault params
-DATA_DIR = "./data/sleepedfx/sleep-cassette"
-OUTPUT_DIR = "./data/sleepedfx/sleep-cassette/eeg_fpz_cz"
+DATA_DIR = "D:/edf"
+OUTPUT_DIR = "D:/edf_prepared"
 SELECT_CHANNEL = "EEG Fpz-Cz"
 LOG_FILE = "info_ch_extract.log"
-
 
 def main(
         data_dir: str = DATA_DIR,
@@ -53,6 +52,8 @@ def main(
     data_dir = Path(data_dir)
     output_dir = Path(output_dir)
     log_file = Path(log_file)
+
+    w = 0; n1 = 0; n2 = 0; n34 = 0; r = 0
 
     # Output dir
     if not os.path.exists(output_dir):
@@ -174,6 +175,13 @@ def main(
         y = y[select_idx]
         logger.info("Data after selection: {}, {}".format(x.shape, y.shape))
 
+        # count sleep stages
+        w = w + np.count_nonzero(y==0)
+        n1 = n1 + np.count_nonzero(y==1)
+        n2 = n2 + np.count_nonzero(y==2)
+        n34 = n34 + np.count_nonzero(y==3)
+        r = r + np.count_nonzero(y==4)
+
         # Remove movement and unknown
         move_idx = np.where(y == stage_dict["MOVE"])[0]
         unk_idx = np.where(y == stage_dict["UNK"])[0]
@@ -206,12 +214,14 @@ def main(
 
         logger.info("\n=======================================\n")
 
+    print("W:", w, '\n', "N1:", n1, '\n', "N2:", n2, '\n', "N3/4:", n34, '\n', "R:", r)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, default="./data/sleep-edf-database-expanded-1.0.0/sleep-cassette",
+    parser.add_argument("--data_dir", type=str, default="D:/edf",
                         help="File path to the Sleep-EDF dataset.")
-    parser.add_argument("--output_dir", type=str, default="./data/sleep-edf-database-expanded-1.0.0/sleep-cassette/eeg_fpz_cz",
+    parser.add_argument("--output_dir", type=str, default="D:/edf_prepared",
                         help="Directory where to save outputs.")
     parser.add_argument("--select_ch", type=str, default="EEG Fpz-Cz",
                         help="Name of the channel in the dataset.")

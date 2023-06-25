@@ -1,7 +1,6 @@
-import os
 import numpy as np
 from config import configurations, Config
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser
 
 from data.data import get_data, get_collator
 from model import SleepStagingModel
@@ -11,12 +10,12 @@ import lightning.pytorch as pl
 import torch.nn as nn
 import torch
 
-def seed_everything(seed: int):
+def seed_everything(seed: int) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)
     pl.seed_everything(seed)
 
-def run(config_name: str):
+def run(config_name: str) -> None:
     cfg: Config = configurations[config_name]
     seed_everything(cfg.seed)
     train_loader, _, test_loader = get_data(
@@ -50,6 +49,7 @@ def run(config_name: str):
         logger=logger
     )
     
+    # run a test step before training as sanity check
     trainer.test(model, test_loader)
     trainer.fit(model, train_loader)
     trainer.test(model, test_loader)

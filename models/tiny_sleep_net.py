@@ -1,12 +1,32 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from torch import tensor
 from config import Config
 
 class TinySleepNet(nn.Module):
+    """Custom TinySleepNet implementation.
+    Original paper: https://ieeexplore.ieee.org/document/9176741.
+
+    Args:
+        config (Config): The configuration object for the model.
+
+    Attributes:
+        cfg (Config): The configuration object for the model.
+        kernel_sizes (dict): A dictionary of kernel sizes.
+        strides (dict): A dictionary of strides.
+        padding (dict): A dictionary of padding values.
+        representation (nn.Sequential): The sequential module for the CNN encoder.
+        rnn (nn.LSTM): The LSTM module for sequential learning (RNN encoder).
+        rnn_dropout (nn.Dropout): The dropout layer for the LSTM outputs.
+        fc (nn.Linear): The linear layer for the final classification.
+
+    Methods:
+        forward(x, state=None): Performs the forward pass of the model.
+        _get_conv_block(in_channels=128, out_channels=128, kernel_size=8, stride=1, padding=0): Returns a convolutional block.
+        _init_hidden(): Initializes the hidden state for the LSTM.
+
+    """
     def __init__(self, config: Config):
         super().__init__()
         self.cfg = config
@@ -58,20 +78,16 @@ class TinySleepNet(nn.Module):
         self.rnn_dropout = nn.Dropout(p=.5)
         self.fc = nn.Linear(self.cfg.rnn_hidden_size, self.cfg.num_classes)
     
-    def forward(self, x, state = None):
+    def forward(self, x: tensor, state = None) -> tuple[tensor, tuple[tensor, tensor]]:
         batch_length = x.shape[0]
-        # print(x.shape)
+        # reshape inputs as (batch_size * seq_len, n_in_channels, -1)
         x = x.view(batch_length * self.cfg.seq_len, self.cfg.n_in_channels, -1)
-        # print(x.shape)
         x = self.representation(x)
-        # print(x.shape)
-        x = x.view(-1, self.cfg.seq_len, 2048)  # batch first == True
-        # print(x.shape)
+        # reshape inputs as (batch_size, seq_len, 2048)
+        x = x.view(-1, self.cfg.seq_len, 2048)  
         assert x.shape[-1] == 2048
         x, state = self.rnn(x, state)
         x = x.reshape(-1, self.cfg.rnn_hidden_size)
-        # print(x.shape)
-        # rnn output shape(seq_length, batch_size, hidden_size)
         x = self.rnn_dropout(x)
         x = self.fc(x)
 
@@ -79,11 +95,13 @@ class TinySleepNet(nn.Module):
     
     def _get_conv_block(
             self, 
-            in_channels = 128, 
-            out_channels = 128, 
-            kernel_size = 8,
-            stride = 1,
-            padding = 0):
+            in_channels: int = 128, 
+            out_channels: int = 128, 
+            kernel_size: int = 8,
+            stride: int = 1,
+            padding: int = 0
+        ) -> tuple[nn.Module, nn.Module, nn.Module, nn.Module]:
+        
         return (
             nn.ConstantPad1d(padding, 0),
             nn.Conv1d(
@@ -96,17 +114,7 @@ class TinySleepNet(nn.Module):
             nn.ReLU(inplace=True),
         )
         
-    def _init_hidden(self):
+    def _init_hidden(self) -> tuple[tensor, tensor]:
         state = (torch.zeros(size=(1, self.cfg.batch_size, self.cfg.rnn_hidden_size)),
                  torch.zeros(size=(1, self.cfg.batch_size, self.cfg.rnn_hidden_size)))
         return state
-
-if __name__ == "__main__":
-    # m = nn.Conv1d(16, 33, 3, stride=2)
-    # input = torch.randn(20, 16, 50)
-    # output = m(input)
-    # print(output.shape)   
-    a = TinySleepNet(num_classes=5)
-    print(a)
-
-    

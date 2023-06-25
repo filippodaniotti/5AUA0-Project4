@@ -1,8 +1,6 @@
 from os.path import join
 from dataclasses import dataclass
 
-from typing import Dict
-
 __all__ = ["configurations", "Config"]
 
 @dataclass(frozen=True)
@@ -14,9 +12,12 @@ class Config:
     sampling_rate: int = 100
     epoch_duration: int = 30
     n_in_channels: int = 1
+    # available channels in HMC dataset:
+    # ["EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2", "ECG", "HR"]
     in_channels: list[str] = None
     rnn_hidden_size: int = 128
     
+    # architecture
     padding_conv1: tuple = (22, 22)
     padding_max_pool1: tuple = (2, 2)
     padding_conv2: tuple = (3, 4)
@@ -54,8 +55,6 @@ configurations: dict[str, Config] = {
         epochs=200,
     ),
     
-    # available channels in HMC dataset:
-    # ["EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2", "ECG"]
     "baseline_hmc": Config(
         data_dir=join("dataset", "hmc"),
         sampling_rate=256,

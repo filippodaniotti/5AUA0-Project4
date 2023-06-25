@@ -2,12 +2,49 @@ import lightning.pytorch as pl
 import torch
 from torch import nn, tensor
 from torchmetrics import Accuracy
+from sklearn.metrics import classification_report, confusion_matrix
 
-from models.tiny_sleep_net import TinySleepNet
-from sklearn.metrics import classification_report, confusion_matrix, cohen_kappa_score
 from config import Config
 
 class SleepStagingModel(pl.LightningModule):
+    """LightningModule for a sleep staging model.
+    This class implements the LightningModule interface and defines
+    the training and testing behaviour of the underlying model.
+
+    Args:
+        model (nn.Module): The underlying model.
+        cost_function (nn.Module): The cost function for optimization.
+        config (Config): The configuration object for the model.
+        evaluate (bool): Flag indicating whether to perform evaluation. Defaults to False.
+        learning_rate (float): The learning rate for optimization. 
+            If None, uses the value from the config. Defaults to None.
+        weight_decay (float): The weight decay for optimization. 
+            If None, uses the value from the config. Defaults to None.
+
+    Attributes:
+        cfg (Config): The configuration object for the model.
+        model (nn.Module): The underlying model.
+        cost_fn (nn.Module): The cost function for optimization.
+        accuracy (Accuracy): The accuracy metric for evaluation.
+        lr (float): The learning rate for optimization.
+        wd (float): The weight decay for optimization.
+        idx_to_class (dict): A dictionary mapping class indices to class labels.
+        evaluate (bool): Flag indicating whether to perform evaluation.
+        predictions (list): A list to store the model predictions during evaluation.
+        targets (list): A list to store the target values during evaluation.
+
+    Methods:
+        forward(x): Performs the forward pass of the model.
+        training_step(batch, batch_idx): Defines a training step for the model.
+        validation_step(batch, batch_idx): Defines a validation step for the model.
+        test_step(batch, batch_idx): Defines a test step for the model.
+        configure_optimizers(): Configures the optimizers for training.
+        _compute_loss_and_accuracy(inputs, targets): Common step, cmputes the loss and accuracy 
+            for a batch of inputs and targets.
+        _print_metrics(loss, acc, stage): Prints and logs the metrics.
+        compute_metrics(): Computes evaluation metrics.
+
+    """
     def __init__(
             self, 
             model: nn.Module, 
@@ -21,7 +58,6 @@ class SleepStagingModel(pl.LightningModule):
         self.model = model    
         self.cost_fn = cost_function
         self.accuracy = Accuracy(task="multiclass", num_classes=self.cfg.num_classes)
-        
         
         self.lr = learning_rate if learning_rate else self.cfg.learning_rate
         self.wd = weight_decay if weight_decay else self.cfg.weight_decay
@@ -63,14 +99,12 @@ class SleepStagingModel(pl.LightningModule):
             self.targets.append(targets)
         return metrics
 
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.0001)
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        return torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.wd)
 
     def _compute_loss_and_accuracy(self, inputs: tensor, targets: tensor):
-        # print(inputs.shape, targets.shape)
         outputs, _ = self(inputs)
         targets = targets.view(-1)
-        # print(outputs.shape, targets.shape)
         loss = self.cost_fn(outputs, targets)
         _, predicted = outputs.max(1)
         acc = self.accuracy(predicted, targets) * 100
@@ -97,41 +131,5 @@ class SleepStagingModel(pl.LightningModule):
             predicted,
             labels=list(self.idx_to_class.keys())
         )
-        # kappa = cohen_kappa_score(targets, predicted, labels=self.idx_to_class.keys())
         return {"report": report, "matrix": matrix, }
     
-
-if __name__ == "__main__":
-    from config import configurations
-    from data.data import get_data, get_collator
-    
-    conf = configurations["hmc_gpu_3ch_e30_hr"]
-    model = SleepStagingModel(TinySleepNet(conf), nn.CrossEntropyLoss(), conf)
-    
-    train_loader, _, test_loader = get_data(
-        root=conf.data_dir,
-        dataset=conf.dataset,
-        epoch_duration=conf.epoch_duration,
-        selected_channels=conf.in_channels,
-        batch_size=conf.batch_size,
-        test_batch_size=conf.test_batch_size,
-        train_percentage=0.9,
-        val_percentage=0.0,
-        test_percentage=0.1,
-        train_collate_fn=get_collator(
-            epoch_duration=conf.epoch_duration,
-            in_channels=conf.n_in_channels,
-            sampling_rate=conf.sampling_rate,
-            low_resources=conf.low_resources),
-        test_collate_fn=get_collator(
-            epoch_duration=conf.epoch_duration,
-            in_channels=conf.n_in_channels,
-            sampling_rate=conf.sampling_rate,
-            low_resources=conf.low_resources,
-            is_test_set=True)
-    )
-    
-    for t, s in train_loader:
-        print(t.shape)
-        print(s.shape)
-        o = model(t)

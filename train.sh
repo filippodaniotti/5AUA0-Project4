@@ -18,8 +18,4 @@ source venv/bin/activate
 git checkout master
 
 # run your code
-python3 train.py -c hmc_gpu_c4m1_e12
-# python3 train.py -c hmc_gpu_o2m1
-# python3 train.py -c hmc_gpu_f4m1
-# python3 train.py -c hmc_gpu_c3m2
-# python3 train.py -c hmc_gpu_ecg
+python3 train.py -c hmc_gpu_3ch_e30

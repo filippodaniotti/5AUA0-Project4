@@ -40,7 +40,7 @@ def run(config_name: str) -> None:
             low_resources=cfg.low_resources,
             is_test_set=True)
     )
-    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1., 1.5, 1., 1., 1.]), ignore_index=-1)
+    criterion = nn.CrossEntropyLoss(weight=torch.Tensor([1., 1.5, 1., 1., 1.]))
     model = SleepStagingModel(TinySleepNet(cfg), criterion, cfg)
     logger = pl.loggers.TensorBoardLogger(cfg.logs_dir, config_name)
     trainer = pl.Trainer(

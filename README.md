@@ -1,66 +1,114 @@
-# 5AUA0 Template
+# Deep Automatic Sleep Staging
 
-This template contains a minimal implementation of a convolutional neural network for image classification.
+Sleep staging is important in the diagnosis of numerous
+health-related problems. Manual sleep staging, which is
+done by professionals reviewing polysomnography results,
+is time-consuming and error-prone. This calls for the need
+of process automation. Different models have already been
+proposed using e.g. EEG data. This study consists of a com-
+parison between different model adaptation strategies and
+different types of input data when using the same model.
+Used channels are four different EEG leads, ECG and heart
+rate. The results demonstrate that the temporal resolution
+of the data is crucial for learning the time-invariant rep-
+resentation, that EEG channels are more suited than ECG
+and heart rate for training the model and lastly, that com-
+bining multiple EEG channels can further increase model
+performance, achieving accuracy scores up to 77%.
 
 ## Requirements
-This code has been tested with the following versions:
-- python == 3.10
-- pytorch == 2.0
-- torchvision == 0.15
-- numpy == 1.23
-- pillow == 9.4
-- cudatoolkit == 11.7 (Only required for using GPU & CUDA)
 
-We recommend you to install these dependencies using [Anaconda](https://docs.anaconda.com/anaconda/install/). With Anaconda installed, the dependencies can be installed with
-```bash
-conda create --name 5aua0 python=3.10
-conda activate 5aua0
-conda init
-conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-```     
+This code has been tested with the following versions:
+
+- `python` == 3.10
+- `pytorch` == 2.0.1
+- `torchmetrics` == 0.11.4
+- `pytorch-lightning` == 2.0.2
+- `numpy` == 1.24.3
+- `pandas` == 2.0.1
+- `matplotlib` == 3.7.1
+- `tensorboard` == 2.0.1
+
+The pre-processing utilities will require the following additional modules:
+
+- `pyEDFlib` = 0.1.32
+- `heartpy` = 1.2.7    
 
 ## Dataset
-To download and prepare the dataset, follow these steps:
-- Download the [CIFAR10 dataset](https://www.cs.toronto.edu/~kriz/cifar.html) from [this URL](https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz).
-- Unpack the file and store the `cifar-10-batches-py` directory in the `data` directory of this repository.
-- To prepare the dataset, run `python prepare_cifar10_data.py`.
+
+In order to prepare the datasets:
+
+- Download the datasets
+  - [Sleep-EDFx](https://physionet.org/content/sleep-edfx/1.0.0/)
+    -   `wget -r -N -c -np https://physionet.org/files/sleep-edfx/1.0.0/`
+  - [Haaglanden Medisch Centrum](https://physionet.org/content/hmc-sleep-staging/1.1/)
+    -  `wget -r -N -c -np https://physionet.org/files/hmc-sleep-staging/1.1/`
+- Edit the pre-processing scripts to specify your local path to the datasets and destination folder, e.g. `./dataset/`
+- Run the pre-processing scripts
+  - Sleep-EDFx
+    - `python3 pre-processing/prepare_sleepedf.py`
+  - HMC
+    -  `python3 pre-processing/prepare_hmc.py`
+    -  `python3 pre-processing/extract_hr.py`
 
 ## Training and testing the network
-To train the network, run:
-```bash
-python train.py
-```
-This will train the network with the configuration settings stored in `config.py`.
 
-To test the network, run:
+To perform a full training and evaluation experiment, run:
 ```bash
-python test.py
+python train.py -c baseline
 ```
-This will test the network on the testing set and report the accuracy. After training and testing the network using the default configuration settings, an accuracy of approximately `64%` should be achieved.
+This will train the network with the `baseline` configuration. The available configuratiosn are defined in the `confugurations` dictionary in the `src/config.py` files.
 
+To visualize training curves and the test accuracy of the results, you can use `tensorboard`:
+```bash
+tensorboard --logdir=experiments_logs/
+```
+The results will be available at `http://localhost:6006/`.
+
+In the `notebooks/results.ipynb` notebook, you can find the code to generate further metrics to evaluate the results of the experiments, e.g. per-class precision, recall, f1 and confusion matrices.
 
 ## Config and hyperparameters
-The hyperparameters are defined in `config.py`. We define:
-- `batch_size_train`: The batch size during training (default: 32)
-- `batch_size_test`: The batch size during testing (default: 25)
-- `lr`: The learning rate (default: 0.005)
-- `lr_momentum`: The learning rate momentum for the SGD optimizer (default: 0.9)
-- `weight_decay`: The weight decay (default: 1e-4)
-- `num_classes`: The number of classes to be classified (default: 10 for CIFAR10)
-- `gt_dir`: Location where the dataset/ground-truth is stored (default: `"./data/cifar-10-batches-py/"`)
-- `num_iterations`: The number of iterations to train the network (default: 10000)
-- `log_iterations`: The number of iterations after which the loss is logged and reported (default: 100)
-- `enable_cuda`: Enabling CUDA. NOTE: only possible if PyTorch is installed with CUDA, and if a GPU is available (default: False)
+The configuration is defined in the `src/config.py` file. The available configurations are defined in the `configurations` dictionary. The `baseline` configuration is defined as follows:
 
-
-## Potential improvements
-As mentioned, this is a very minimal example. This code should be changed to solve your task, and there are plenty of functionalities that you could add to make your life easier, or to improve the performance. Some examples:
-- Store the `config` info for each training that you do, so you remember the hyperparameters you used.
-- Run evaluation on the validation/test set after every X steps, to keep track of the performance of the network on unseen data.
-- Try out other network components, such as `BatchNorm` and `Dropout`.
-- Fix random seeds, to make results (and bugs) better reproducible.
-- Visualize the results of your network! By visualizing the input image and printing/logging the predicted result, you can get insight in the performance of your model.
-- And of course, improve network and the hyperparameters to get a better performance!
-
-## HPC
-In order to run this repository on the Snellius High Performance Computing platform, please follow our [HPC Tutorial](https://tue-5aua0.github.io/hpc_tutorial.html)
+```python
+class Config:
+    # model
+    learning_rate: float = 1e-4
+    weight_decay: float = 1e-4
+    num_classes: int = 5
+    sampling_rate: int = 100
+    epoch_duration: int = 30
+    n_in_channels: int = 1
+    # available channels in HMC dataset:
+    # ["EEG C4-M1", "EEG F4-M1", "EEG O2-M1", "EEG C3-M2", "ECG", "HR"]
+    in_channels: list[str] = None
+    rnn_hidden_size: int = 128
+    
+    # architecture
+    padding_conv1: tuple = (22, 22)
+    padding_max_pool1: tuple = (2, 2)
+    padding_conv2: tuple = (3, 4)
+    padding_max_pool2: tuple = (0, 1)
+    
+    kernel_sizes_conv1: int = 50
+    kernel_sizes_max_pool1: int = 8
+    
+    strides_conv1: int = 6
+    strides_max_pool1: int = 8
+    
+    # dataset
+    data_dir: str = join("dataset", "sleepedfx", "sleep-cassette", "eeg_fpz_cz")
+    dataset: str = "sleepedfx"
+    
+    # training
+    epochs: int = 50
+    log_iterations: int = 1
+    batch_size: int = 15
+    test_batch_size: int = 1
+    seq_len: int = 20
+    
+    # others
+    low_resources: int = 0
+    logs_dir: str = "experiments_logs"
+    seed: int = 42
+    ```

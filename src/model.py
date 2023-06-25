@@ -4,7 +4,7 @@ from torch import nn, tensor
 from torchmetrics import Accuracy
 from sklearn.metrics import classification_report, confusion_matrix
 
-from config import Config
+from src.config import Config
 
 class SleepStagingModel(pl.LightningModule):
     """LightningModule for a sleep staging model.

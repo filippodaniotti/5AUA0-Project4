@@ -1,10 +1,10 @@
 import numpy as np
-from config import configurations, Config
 from argparse import ArgumentParser
 
-from data.data import get_data, get_collator
-from model import SleepStagingModel
-from models.tiny_sleep_net import TinySleepNet
+from src.config import configurations, Config
+from src.data import get_data, get_collator
+from src.model import SleepStagingModel
+from src.tiny_sleep_net import TinySleepNet
 
 import lightning.pytorch as pl
 import torch.nn as nn

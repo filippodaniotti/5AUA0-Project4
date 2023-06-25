@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from torch import tensor
-from config import Config
+from src.config import Config
 
 class TinySleepNet(nn.Module):
     """Custom TinySleepNet implementation.
